@@ -3,7 +3,7 @@
 import pytest
 
 from atomate2.vasp.sets.base import VaspInputGenerator
-from atomate2.vasp.sets.mp import (
+from atomate2.vasp.sets.mp.mp import (
     MPGGARelaxSetGenerator,
     MPGGAStaticSetGenerator,
     MPMetaGGARelaxSetGenerator,

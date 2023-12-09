@@ -3,13 +3,13 @@ from emmet.core.tasks import TaskDoc
 from jobflow import run_locally
 from pymatgen.core import Structure
 
-from atomate2.vasp.jobs.mp import (
+from atomate2.vasp.jobs.mp.mp import (
     MPGGARelaxMaker,
     MPMetaGGARelaxMaker,
     MPMetaGGAStaticMaker,
     MPPreRelaxMaker,
 )
-from atomate2.vasp.sets.mp import MPMetaGGARelaxSetGenerator
+from atomate2.vasp.sets.mp.mp import MPMetaGGARelaxSetGenerator
 
 expected_incar = {
     "ISIF": 3,

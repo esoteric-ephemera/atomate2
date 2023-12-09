@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from jobflow import Flow, Maker
 
 from atomate2.vasp.flows.core import DoubleRelaxMaker
-from atomate2.vasp.jobs.mp import (
+from atomate2.vasp.jobs.mp.mp import (
     MPGGARelaxMaker,
     MPGGAStaticMaker,
     MPMetaGGARelaxMaker,
@@ -131,7 +131,7 @@ class MPGGADoubleRelaxStaticMaker(Maker):
 
 
 @dataclass
-class MPMetaGGADoubleRelaxStaticMaker(MPGGADoubleRelaxMaker):
+class MPMetaGGADoubleRelaxStaticMaker(MPGGADoubleRelaxStaticMaker):
     """
     Flow with optional pre-relax and final static jobs.
 
@@ -154,34 +154,3 @@ class MPMetaGGADoubleRelaxStaticMaker(MPGGADoubleRelaxMaker):
             copy_vasp_kwargs={"additional_vasp_files": ("WAVECAR", "CHGCAR")}
         )
     )
-
-    def make(self, structure: Structure, prev_dir: str | Path | None = None) -> Flow:
-        """
-        Create a 2-step flow with a cheap pre-relaxation followed by a high-quality one.
-
-        An optional static calculation can be performed before the relaxation.
-
-        Parameters
-        ----------
-        structure : .Structure
-            A pymatgen structure object.
-        prev_dir : str or Path or None
-            A previous VASP calculation directory to copy output files from.
-
-        Returns
-        -------
-        Flow
-            A flow containing the MP relaxation workflow.
-        """
-        relax_flow = self.relax_maker.make(structure=structure, prev_dir=prev_dir)
-        output = relax_flow.output
-        jobs = [relax_flow]
-        if self.static_maker:
-            # Run a static calculation (typically r2SCAN)
-            static_job = self.static_maker.make(
-                structure=output.structure, prev_dir=output.dir_name
-            )
-            output = static_job.output
-            jobs += [static_job]
-
-        return Flow(jobs=jobs, output=output, name=self.name)

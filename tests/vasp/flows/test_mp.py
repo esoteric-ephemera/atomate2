@@ -5,16 +5,18 @@ from emmet.core.tasks import TaskDoc
 from jobflow import Maker, run_locally
 from pymatgen.core import Structure
 
-from atomate2.vasp.flows.mp import (
+from atomate2.vasp.flows.mp.mp import (
     MPGGADoubleRelaxMaker,
     MPGGADoubleRelaxStaticMaker,
     MPMetaGGADoubleRelaxStaticMaker,
 )
-from atomate2.vasp.jobs.mp import (
+from atomate2.vasp.jobs.mp.mp import (
     MPMetaGGARelaxMaker,
     MPPreRelaxMaker,
 )
-from atomate2.vasp.sets.mp import MPMetaGGARelaxSetGenerator
+from atomate2.vasp.sets.mp.mp import MPMetaGGARelaxSetGenerator
+
+check_incar_tags = []
 
 
 @pytest.mark.parametrize("name", ["test", None])
@@ -52,16 +54,19 @@ def test_mp_meta_gga_double_relax_static(mock_vasp, clean_dir, vasp_test_dir):
     pre_relax_dir = "Si_mp_meta_gga_relax/pbesol_pre_relax"
     ref_paths = {
         "MP pre-relax 1": pre_relax_dir,
-        "MP meta-GGA relax 2": "Si_mp_meta_gga_relax/r2scan_relax",
+        "MP meta-GGA relax": "Si_mp_meta_gga_relax/r2scan_relax",
         "MP meta-GGA static": "Si_mp_meta_gga_relax/r2scan_final_static",
     }
     si_struct = Structure.from_file(f"{vasp_test_dir}/{pre_relax_dir}/inputs/POSCAR")
 
-    mock_vasp(ref_paths)
+    fake_run_vasp_kwargs = {
+        key: {"incar_settings": check_incar_tags} for key in ref_paths
+    }
+    mock_vasp(ref_paths, fake_run_vasp_kwargs)
 
     # generate flow
     flow = MPMetaGGADoubleRelaxStaticMaker(
-        relax_maker2=MPMetaGGARelaxMaker(
+        relax_maker=MPMetaGGARelaxMaker(
             # TODO write better test for bandgap_tol since it isn't actually used by
             # mock_vasp. this just tests it can be passed without error
             input_set_generator=MPMetaGGARelaxSetGenerator(bandgap_tol=0.1)
@@ -87,7 +92,10 @@ def test_mp_gga_double_relax_static(mock_vasp, clean_dir, vasp_test_dir):
     }
     si_struct = Structure.from_file(f"{vasp_test_dir}/{pre_relax_dir}/inputs/POSCAR")
 
-    mock_vasp(ref_paths)
+    fake_run_vasp_kwargs = {
+        key: {"incar_settings": check_incar_tags} for key in ref_paths
+    }
+    mock_vasp(ref_paths, fake_run_vasp_kwargs)
 
     # generate flow
     flow = MPGGADoubleRelaxStaticMaker().make(si_struct)
@@ -110,7 +118,10 @@ def test_mp_gga_double_relax(mock_vasp, clean_dir, vasp_test_dir):
     }
     si_struct = Structure.from_file(f"{vasp_test_dir}/{pre_relax_dir}/inputs/POSCAR")
 
-    mock_vasp(ref_paths)
+    fake_run_vasp_kwargs = {
+        key: {"incar_settings": check_incar_tags} for key in ref_paths
+    }
+    mock_vasp(ref_paths, fake_run_vasp_kwargs)
 
     # generate flow
     flow = MPGGADoubleRelaxMaker().make(si_struct)
