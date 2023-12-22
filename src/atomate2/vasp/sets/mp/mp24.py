@@ -26,6 +26,7 @@ class MP24GGARelaxSetGenerator(RelaxSetGenerator):
     """Class to generate MP 2024-compatible VASP GGA relax input sets."""
 
     config_dict: dict = field(default_factory=lambda: _BASE_MP24_RELAX_SET)
+    auto_ismear: bool = False
     auto_kspacing: bool = True
     bandgap_tol: float = 1e-4
 
@@ -69,6 +70,7 @@ class MP24GGAStaticSetGenerator(StaticSetGenerator):
     """Class to generate MP 2024-compatible VASP GGA static input sets."""
 
     config_dict: dict = field(default_factory=lambda: _BASE_MP24_RELAX_SET)
+    auto_ismear: bool = False
     auto_kspacing: bool = True
     bandgap_tol: float = 1e-4
 
@@ -117,6 +119,7 @@ class MP24MetaGGARelaxSetGenerator(RelaxSetGenerator):
     """Class to generate MP 2024-compatible VASP meta-GGA relax input sets."""
 
     config_dict: dict = field(default_factory=lambda: _BASE_MP24_RELAX_SET)
+    auto_ismear: bool = False
     auto_kspacing: bool = True
     bandgap_tol: float = 1e-4
 
@@ -157,6 +160,7 @@ class MP24MetaGGAStaticSetGenerator(StaticSetGenerator):
     """Class to generate MP 2024-compatible VASP meta-GGA static input sets."""
 
     config_dict: dict = field(default_factory=lambda: _BASE_MP24_RELAX_SET)
+    auto_ismear: bool = False
     auto_kspacing: bool = True
     bandgap_tol: float = 1e-4
 
