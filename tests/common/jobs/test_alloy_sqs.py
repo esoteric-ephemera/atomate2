@@ -34,7 +34,7 @@ def test_alloy_mcsqs(clean_dir, runs: int = 2):
         c_over_a=lattice_abc["coa"],
     )
 
-    job = alloy_sqs.alloy_mcsqs(
+    job = alloy_sqs.alloy_mcsqs_job(
         lattice_abc=lattice_abc,
         symmetry=symmetry,
         site_composition=comp,
@@ -57,7 +57,7 @@ def test_alloy_mcsqs(clean_dir, runs: int = 2):
         "remove_duplicate_structures": False,
     }
 
-    job = alloy_sqs.alloy_mcsqs(
+    job = alloy_sqs.alloy_mcsqs_job(
         lattice_abc=lattice_abc,
         symmetry=symmetry,
         site_composition=comp,

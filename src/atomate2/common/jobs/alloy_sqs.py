@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import tarfile
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -157,8 +158,9 @@ class MCSQS:
 
         self.scaling = scaling
         sqs_kwargs = sqs_kwargs or {}
-        if not os.path.isdir(sqs_kwargs.get("directory", "./")):
-            os.makedirs(sqs_kwargs["directory"], exist_ok=True)
+        self.workdir = sqs_kwargs.get("directory", "./")
+        if not os.path.isdir(self.workdir):
+            os.makedirs(self.workdir, exist_ok=True)
 
         self.SQS = lambda nrun: SQSTransformation(
             scaling=scaling, instances=nrun, **sqs_kwargs
@@ -213,7 +215,8 @@ class MCSQS:
         self,
         nrun: int,
         return_ranked_list: bool | int = False,
-        output_filename: str | None = "./MCSQS.json",
+        output_filename: str | None = "MCSQS.json",
+        archive_instances: bool = False,
     ) -> None:
         """
         Run parallel MCSQS instances for the same structure.
@@ -270,7 +273,6 @@ class MCSQS:
             dumpfn(self.output, output_filename)
 
 
-@job
 def alloy_mcsqs(
     lattice_abc: dict[str, float],
     symmetry: str | int,
@@ -279,6 +281,7 @@ def alloy_mcsqs(
     sqs_scaling: int | Sequence[int],
     sqs_kwargs: dict = None,
     return_ranked_list: bool | int = False,
+    archive_instances: bool = True,
 ) -> dict:
     """
     Make MCSQS alloy structures with atomate2.
@@ -304,6 +307,9 @@ def alloy_mcsqs(
     return_ranked_list : bool | int
         Whether to return a list of SQS structures ranked by objective (bool), or
         how many to return ranked by objective (int)
+    archive_instances : bool = False
+        Whether to archive the contents of the SQS working directory as
+        a tarball
 
     Returns
     -------
@@ -321,13 +327,16 @@ def alloy_mcsqs(
 
     default_sqs_kwargs = {
         "search_time": 60,
-        "directory": "./",
+        "directory": "./instances/",
         "remove_duplicate_structures": True,
         "best_only": True,
     }
 
     sqs_kwargs = sqs_kwargs or {}
     default_sqs_kwargs.update(sqs_kwargs)
+
+    original_directory = os.getcwd()
+
     mcsqs = MCSQS.from_symm_comp(
         a=lattice_abc["a"],
         symmetry=symmetry,
@@ -337,6 +346,36 @@ def alloy_mcsqs(
         c_over_a=coa,
     )
 
-    mcsqs.run_many(nrun=nrun, return_ranked_list=return_ranked_list)
+    mcsqs.run_many(
+        nrun=nrun,
+        return_ranked_list=return_ranked_list,
+        output_filename="../MCSQS.json.gz",
+    )
+
+    os.chdir(original_directory)
+    if archive_instances and isinstance(default_sqs_kwargs["directory"], str):
+        archive_name: str = default_sqs_kwargs["directory"]
+        if archive_name[-1] == "/":
+            archive_name = archive_name[:-1]
+        archive_name += ".tar.gz"
+
+        # add files to tarball
+        with tarfile.open(archive_name, "w:gz") as tarball:
+            files = []
+            for file in os.listdir(default_sqs_kwargs["directory"]):
+                filename = os.path.join(default_sqs_kwargs["directory"], file)
+                if os.path.isfile(filename):
+                    files.append(filename)
+                    tarball.add(filename)
+
+        # cleanup
+        for file in files:
+            os.remove(file)
+
+        if len(os.listdir(default_sqs_kwargs["directory"])) == 0:
+            os.rmdir(default_sqs_kwargs["directory"])
 
     return mcsqs.output
+
+
+alloy_mcsqs_job = job(alloy_mcsqs)
