@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import tarfile
+from string import ascii_uppercase
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -21,6 +22,39 @@ if TYPE_CHECKING:
 
     from numpy.typing import ArrayLike
     from pymatgen.core import Element
+
+
+def anonymizer(structure: Structure) -> Structure:
+    """
+    Anonymize input structure composition.
+
+    Parameters
+    ----------
+    structure : Structure
+
+    Returns
+    -------
+    Structure
+
+    Ex: For a structure with formula Al3 Cu4 Ba2 Ca Dy10 Y,
+    the output structure will have formula X3 Y4 Z2 A B10 C,
+    where the substitution
+        {"Al": "X", "Cu": "Y", "Ba": "Z", "Ca": "A", "Dy": "B", "Y": "C"}
+    was performed.
+    """
+    species = structure.composition.elements
+    letters = list(ascii_uppercase)
+    symbols = [letters[(i + 23) % len(letters)] for i in range(len(letters))]
+    if len(species) > len(symbols):
+        j = 0
+        for i in range(len(species) - len(symbols)):
+            new_char = symbols[i % len(letters)] + "_" + letters[j]
+            symbols.append(new_char)
+            if i % len(letters) == 0:
+                j += 1
+
+    replacement = {elt: symbols[i] for i, elt in enumerate(species)}
+    return structure.replace_species(replacement)
 
 
 class Alloy:
@@ -216,7 +250,6 @@ class MCSQS:
         nrun: int,
         return_ranked_list: bool | int = False,
         output_filename: str | None = "MCSQS.json",
-        archive_instances: bool = False,
     ) -> None:
         """
         Run parallel MCSQS instances for the same structure.
@@ -282,6 +315,7 @@ def alloy_mcsqs(
     sqs_kwargs: dict = None,
     return_ranked_list: bool | int = False,
     archive_instances: bool = True,
+    anonymize_output: bool = True,
 ) -> dict:
     """
     Make MCSQS alloy structures with atomate2.
@@ -310,6 +344,8 @@ def alloy_mcsqs(
     archive_instances : bool = False
         Whether to archive the contents of the SQS working directory as
         a tarball
+    anonymize_output : bool = True
+        Whether to anonymize the output (DummySpecies X, Y, Z, A, B,...)
 
     Returns
     -------
@@ -351,6 +387,17 @@ def alloy_mcsqs(
         return_ranked_list=return_ranked_list,
         output_filename="../MCSQS.json.gz",
     )
+    if anonymize_output:
+        non_list_keys = ["input structure", "best sqs structure"]
+        if isinstance(mcsqs.output["sqs structures"], Structure):
+            non_list_keys += ["sqs structures"]
+
+        for key in non_list_keys:
+            anonymizer(mcsqs.output[key])
+
+        if "sqs structures" not in non_list_keys:
+            for istruct in range(len(mcsqs.output["sqs structures"])):
+                anonymizer(mcsqs.output["sqs structures"][istruct]["structure"])
 
     os.chdir(original_directory)
     if archive_instances and isinstance(default_sqs_kwargs["directory"], str):

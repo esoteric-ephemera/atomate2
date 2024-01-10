@@ -42,6 +42,7 @@ def test_alloy_mcsqs(clean_dir, runs: int = 2):
         sqs_scaling=2,
         sqs_kwargs={"search_time": 0.01},
         return_ranked_list=False,
+        anonymize_output=False,
     )
     responses = run_locally(job, create_folders=True, ensure_success=True)
     output = responses[job.uuid][1].output
