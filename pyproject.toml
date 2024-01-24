@@ -33,7 +33,7 @@ dependencies = [
     "monty>=2023.9.25",
     "numpy",
     "pydantic-settings>=2.0.3",
-    "pydantic>=2.0.1",
+    "pydantic>=2.0.1,<2.5.2",
     "pymatgen>=2023.12.18",
 ]
 
@@ -42,12 +42,12 @@ amset = ["amset>=0.4.15", "pydash"]
 cclib = ["cclib"]
 mp = ["mp-api>=0.37.5"]
 phonons = ["phonopy>=1.10.8", "seekpath"]
-lobster = ["ijson>=3.2.2", "lobsterpy>=0.3.4"]
+lobster = ["ijson>=3.2.2", "lobsterpy>=0.3.6"]
 defects = ["dscribe>=1.2.0", "pymatgen-analysis-defects>=2022.11.30"]
 forcefields = [
-    "ase@git+https://gitlab.com/ase/ase",
+    "ase>=3.22.1",
     "chgnet>=0.2.2",
-    "mace@git+https://github.com/ACEsuit/mace@develop",
+    "mace-torch>=0.3.3",
     "matgl>=0.9.0",
     "quippy-ase>=0.9.14",
 ]
@@ -55,7 +55,7 @@ docs = [
     "FireWorks==2.0.3",
     "autodoc_pydantic==2.0.1",
     "furo==2023.9.10",
-    "ipython==8.19.0",
+    "ipython==8.20.0",
     "jsonschema[format]",
     "myst_parser==2.0.0",
     "numpydoc==1.6.0",
@@ -67,25 +67,27 @@ dev = ["pre-commit>=2.12.1"]
 tests = ["FireWorks==2.0.3", "pytest-cov==4.1.0", "pytest==7.4.4"]
 strict = [
     "PyYAML==6.0.1",
-    "ase@git+https://gitlab.com/ase/ase@2bab58f4e",
+    # must use >= for ase to not uninstall main branch install in CI
+    # last known working commit: https://gitlab.com/ase/ase@2bab58f4e
+    "ase>=3.22.1",
     "cclib==1.8",
     "chgnet==0.3.3",
     "click==8.1.7",
     "custodian==2023.10.9",
     "dscribe==2.1.0",
-    "emmet-core==0.75.0",
+    "emmet-core==0.76.2",
     "ijson==3.2.3",
-    "jobflow==0.1.15",
-    "lobsterpy==0.3.4",
-    "mace@git+https://github.com/ACEsuit/mace@develop",
+    "jobflow==0.1.16",
+    "lobsterpy==0.3.6",
+    "mace-torch>=0.3.3",
     "matgl==0.9.1",
     "monty==2023.9.25",
-    "mp-api==0.39.4",
+    "mp-api==0.39.5",
     "numpy",
     "phonopy==2.21.0",
     "pydantic-settings==2.1.0",
     "pydantic==2.4.2",
-    "pymatgen-analysis-defects==2023.12.14",
+    "pymatgen-analysis-defects==2024.1.12",
     "pymatgen==2023.12.18",
     "quippy-ase==0.9.14",
     "seekpath==2.1.0",
@@ -155,13 +157,13 @@ ignore = [
     "PT006",   # pytest-parametrize-names-wrong-type
     "RUF013",  # implicit-optional
     # TODO remove PT011, pytest.raises() should always check err msg
-    "ANN001", # TODO remove this ignore
     "ANN002",
     "ANN003",
     "ANN101", # missing self type annotation
     "ANN102",
     "ANN401",
     "BLE001",
+    "C408",   # Unnecessary (dict/list/tuple) call - remove call
     "C901",   # function too complex
     "DTZ",    # datetime-tz-now
     "EM",     # exception message must not use f-string literal
