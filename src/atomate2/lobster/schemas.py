@@ -167,7 +167,7 @@ class BondsInfo(BaseModel):
 
     ICOHP_mean: str = Field(..., description="Mean of ICOHPs of relevant bonds")
     ICOHP_sum: str = Field(..., description="Sum of ICOHPs of relevant bonds")
-    has_antibdg_states_below_Efermi: bool = Field(
+    has_antibdg_states_below_Efermi: bool = Field(  # noqa: N815
         ...,
         description="Indicates if antibonding interactions below efermi are detected",
     )
@@ -250,7 +250,7 @@ class CondensedBondingAnalysis(BaseModel):
         description="ICOHP range considered in co-ordination environment analysis"
     )
     number_of_considered_ions: int = Field(
-        ..., description="number of ions detected based on Mulliken/L�wdin Charges"
+        ..., description="number of ions detected based on Mulliken/Löwdin Charges"
     )
     sites: Sites = Field(
         ...,
@@ -396,15 +396,10 @@ class CondensedBondingAnalysis(BaseModel):
                 icohplist_path=icohplist_path,
                 icooplist_path=icooplist_path,
             )
-            return (
-                condensed_bonding_analysis,
-                describe,
-                sb_icobi,
-                sb_icohp,
-                sb_icoop,
-            )
         except ValueError:
             return None, None, None, None, None
+        else:
+            return condensed_bonding_analysis, describe, sb_icobi, sb_icohp, sb_icoop
 
 
 class DosComparisons(BaseModel):
@@ -469,11 +464,11 @@ class BandOverlapsComparisons(BaseModel):
         description="Boolean indicating whether the bandOverlaps.lobster "
         "file is generated during the LOBSTER run",
     )
-    limit_maxDeviation: Optional[float] = Field(
+    limit_maxDeviation: Optional[float] = Field(  # noqa: N815
         None,
         description="Limit set for maximal deviation in pymatgen parser",
     )
-    has_good_quality_maxDeviation: Optional[bool] = Field(
+    has_good_quality_maxDeviation: Optional[bool] = Field(  # noqa: N815
         None,
         description="Boolean indicating whether the deviation at each k-point "
         "is within the threshold set using limit_maxDeviation "
@@ -531,7 +526,7 @@ class CalcQualitySummary(BaseModel):
         cls,
         dir_name: Union[Path, str],
         calc_quality_kwargs: dict = None,
-    ):
+    ) -> "CalcQualitySummary":
         """
         Create a LOBSTER calculation quality summary from directory with LOBSTER files.
 
@@ -601,7 +596,7 @@ class StrongestBonds(BaseModel):
     )
 
 
-class LobsterTaskDocument(StructureMetadata):
+class LobsterTaskDocument(StructureMetadata, extra="allow"):  # type: ignore[call-arg]
     """Definition of LOBSTER task document."""
 
     structure: Structure = Field(description="The structure used in this task")
@@ -747,7 +742,7 @@ class LobsterTaskDocument(StructureMetadata):
         LobsterTaskDocument
             A task document for the lobster calculation.
         """
-        additional_fields = additional_fields or {}
+        additional_fields = {} if additional_fields is None else additional_fields
         dir_name = Path(dir_name)
 
         # Read in lobsterout and lobsterin
@@ -771,10 +766,7 @@ class LobsterTaskDocument(StructureMetadata):
 
         # Do automatic bonding analysis with LobsterPy
         condensed_bonding_analysis = None
-        sb_icobi = None
-        sb_icohp = None
-        sb_icoop = None
-        describe = None
+        sb_icobi = sb_icohp = sb_icoop = describe = None
         struct = Structure.from_file(structure_path)
 
         # will perform two condensed bonding analysis computations
@@ -955,10 +947,10 @@ class LobsterTaskDocument(StructureMetadata):
 
         if save_cba_jsons:
             cba_json_save_dir = dir_name / "cba.json.gz"
-            with gzip.open(cba_json_save_dir, "wt", encoding="UTF-8") as f:
+            with gzip.open(cba_json_save_dir, "wt", encoding="UTF-8") as file:
                 # Write the json in iterable format
                 # (Necessary to load large JSON files via ijson)
-                f.write("[")
+                file.write("[")
                 if (
                     doc.lobsterpy_data_cation_anion is not None
                 ):  # check if cation-anion analysis failed
@@ -981,8 +973,8 @@ class LobsterTaskDocument(StructureMetadata):
                 monty_encoded_json_doc = jsanitize(
                     data, allow_bson=True, strict=True, enum_values=True
                 )
-                json.dump(monty_encoded_json_doc, f)
-                f.write(",")
+                json.dump(monty_encoded_json_doc, file)
+                file.write(",")
                 # add all-bonds data
                 lobsterpy_analysis_type = doc.lobsterpy_data.which_bonds
                 data = {
@@ -997,57 +989,57 @@ class LobsterTaskDocument(StructureMetadata):
                 monty_encoded_json_doc = jsanitize(
                     data, allow_bson=True, strict=True, enum_values=True
                 )
-                json.dump(monty_encoded_json_doc, f)
-                f.write(",")
+                json.dump(monty_encoded_json_doc, file)
+                file.write(",")
                 data = {
                     "madelung_energies": doc.madelung_energies
                 }  # add madelung energies
                 monty_encoded_json_doc = jsanitize(
                     data, allow_bson=True, strict=True, enum_values=True
                 )
-                json.dump(monty_encoded_json_doc, f)
-                f.write(",")
+                json.dump(monty_encoded_json_doc, file)
+                file.write(",")
                 data = {"charges": doc.charges}  # add charges
                 monty_encoded_json_doc = jsanitize(
                     data, allow_bson=True, strict=True, enum_values=True
                 )
-                json.dump(monty_encoded_json_doc, f)
-                f.write(",")
+                json.dump(monty_encoded_json_doc, file)
+                file.write(",")
                 data = {
                     "calc_quality_summary": doc.calc_quality_summary
                 }  # add calc quality summary dict
                 monty_encoded_json_doc = jsanitize(
                     data, allow_bson=True, strict=True, enum_values=True
                 )
-                json.dump(monty_encoded_json_doc, f)
-                f.write(",")
+                json.dump(monty_encoded_json_doc, file)
+                file.write(",")
                 data = {
-                    "calc_quality_text": ["".join(doc.calc_quality_text)]  # type: ignore
+                    "calc_quality_text": ["".join(doc.calc_quality_text)]  # type: ignore[dict-item]
                 }  # add calc quality summary dict
                 monty_encoded_json_doc = jsanitize(
                     data, allow_bson=True, strict=True, enum_values=True
                 )
-                json.dump(monty_encoded_json_doc, f)
-                f.write(",")
+                json.dump(monty_encoded_json_doc, file)
+                file.write(",")
                 data = {"dos": doc.dos}  # add NON LSO of lobster
                 monty_encoded_json_doc = jsanitize(
                     data, allow_bson=True, strict=True, enum_values=True
                 )
-                json.dump(monty_encoded_json_doc, f)
-                f.write(",")
+                json.dump(monty_encoded_json_doc, file)
+                file.write(",")
                 data = {"lso_dos": doc.lso_dos}  # add LSO DOS of lobster
                 monty_encoded_json_doc = jsanitize(
                     data, allow_bson=True, strict=True, enum_values=True
                 )
-                json.dump(monty_encoded_json_doc, f)
-                f.write(",")
+                json.dump(monty_encoded_json_doc, file)
+                file.write(",")
                 data = {"builder_meta": doc.builder_meta}  # add builder metadata
                 monty_encoded_json_doc = jsanitize(
                     data, allow_bson=False, strict=True, enum_values=True
                 )
-                json.dump(monty_encoded_json_doc, f)
+                json.dump(monty_encoded_json_doc, file)
                 del data, monty_encoded_json_doc
-                f.write("]")
+                file.write("]")
 
         if save_computational_data_jsons:
             computational_data_json_save_dir = dir_name / "computational_data.json.gz"
@@ -1071,7 +1063,7 @@ class LobsterTaskDocument(StructureMetadata):
                     are_coops=False,
                     are_cobis=False,
                 )
-                doc.__setattr__("cohp_data", cohp_obj)
+                doc.cohp_data = cohp_obj
 
             if coopcar_path.exists() and doc.coop_data is None:
                 coop_obj = CompleteCohp.from_file(
@@ -1081,7 +1073,7 @@ class LobsterTaskDocument(StructureMetadata):
                     are_coops=True,
                     are_cobis=False,
                 )
-                doc.__setattr__("coop_data", coop_obj)
+                doc.coop_data = coop_obj
 
             if cobicar_path.exists() and doc.cobi_data is None:
                 cobi_obj = CompleteCohp.from_file(
@@ -1091,41 +1083,41 @@ class LobsterTaskDocument(StructureMetadata):
                     are_coops=False,
                     are_cobis=True,
                 )
-                doc.__setattr__("cobi_data", cobi_obj)
+                doc.cobi_data = cobi_obj
             with gzip.open(
                 computational_data_json_save_dir, "wt", encoding="UTF-8"
-            ) as f:
+            ) as file:
                 # Write the json in iterable format
                 # (Necessary to load large JSON files via ijson)
-                f.write("[")
+                file.write("[")
                 for attribute in doc.model_fields:
                     if attribute not in fields_to_exclude:
                         # Use monty encoder to automatically convert pymatgen
                         # objects and other data json compatible dict format
                         data = {
                             attribute: jsanitize(
-                                doc.__getattribute__(attribute),
+                                getattr(doc, attribute),
                                 allow_bson=False,
                                 strict=True,
                                 enum_values=True,
                             )
                         }
-                        json.dump(data, f)
+                        json.dump(data, file)
                         if attribute != list(doc.model_fields.keys())[-1]:
-                            f.write(",")  # add comma separator between two dicts
+                            file.write(",")  # add comma separator between two dicts
                         del data
-                f.write("]")
+                file.write("]")
 
             # Again unset the cohp, cobi and coop data fields if not desired in the DB
             if not add_coxxcar_to_task_document:
-                doc.__setattr__("cohp_data", None)
-                doc.__setattr__("coop_data", None)
-                doc.__setattr__("cobi_data", None)
+                doc.cohp_data = None
+                doc.coop_data = None
+                doc.cobi_data = None
 
         return doc.model_copy(update=additional_fields)
 
 
-def _replace_inf_values(data: Union[dict[Any, Any], list[Any]]):
+def _replace_inf_values(data: Union[dict[Any, Any], list[Any]]) -> None:
     """
     Replace the -inf value in dictionary and with the string representation '-Infinity'.
 
@@ -1301,7 +1293,7 @@ def _get_strong_bonds(
 
 def read_saved_json(
     filename: str, pymatgen_objs: bool = True, query: str = "structure"
-):
+) -> dict[str, Any]:
     """
     Read the data from  *.json.gz file corresponding to query.
 
@@ -1321,9 +1313,9 @@ def read_saved_json(
     dict
         Returns a dictionary with lobster task json data corresponding to query.
     """
-    with gzip.open(filename, "rb") as f:
+    with gzip.open(filename, "rb") as file:
         lobster_data = {}
-        objects = ijson.items(f, "item", use_float=True)
+        objects = ijson.items(file, "item", use_float=True)
         for obj in objects:
             if query is None:
                 for field, data in obj.items():
@@ -1344,11 +1336,9 @@ def read_saved_json(
                 lobster_data[query_key] = MontyDecoder().process_decoded(value)
             elif "lobsterpy_data" in query_key:
                 for field in lobster_data[query_key].__fields__:
-                    lobster_data[query_key].__setattr__(
-                        field,
-                        MontyDecoder().process_decoded(
-                            lobster_data[query_key].__getattribute__(field)
-                        ),
+                    val = MontyDecoder().process_decoded(
+                        getattr(lobster_data[query_key], field)
                     )
+                    setattr(lobster_data[query_key], field, val)
 
     return lobster_data

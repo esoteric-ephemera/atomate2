@@ -3,7 +3,7 @@
 import pytest
 
 from atomate2.vasp.sets.base import VaspInputGenerator
-from atomate2.vasp.sets.mp.mp import (
+from atomate2.vasp.sets.mp import (
     MPGGARelaxSetGenerator,
     MPGGAStaticSetGenerator,
     MPMetaGGARelaxSetGenerator,
@@ -51,7 +51,7 @@ def test_mp_sets(set_generator: VaspInputGenerator) -> None:
         else "PBE"
     )
     assert mp_set.inherit_incar is False
-    assert mp_set.auto_ismear is True
+    assert mp_set.auto_ismear is False
     assert mp_set.auto_kspacing is True
     assert mp_set.force_gamma is True
     assert mp_set.auto_lreal is False
