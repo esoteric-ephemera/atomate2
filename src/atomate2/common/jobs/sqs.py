@@ -131,7 +131,8 @@ class Alloy:
             dlv[key] = dlv["fcc"].copy()
         return np.array(dlv[self.symmetry])
 
-    def _basis_vectors(self) -> list:
+    @staticmethod
+    def _basis_vectors() -> dict:
         basis = {
             "bcc": [[0.0, 0.0, 0.0]],
             "fcc": [[0.0, 0.0, 0.0]],
@@ -139,14 +140,15 @@ class Alloy:
             "hcp": [[0.0, 0.0, 0.0], [1.0 / 3.0, 2.0 / 3.0, 0.5]],
         }
         basis["zb"] = basis["ds"].copy()
-        return basis[self.symmetry]
+        return basis
 
     @property
     def primitive_cell(self) -> Structure:
         """Create a primitive disordered cell."""
-        basis = self._basis_vectors()
+        dlv = self._direct_lattice_vectors()
+        basis = self._basis_vectors()[self.symmetry]
         return Structure(
-            lattice=Lattice(self.lattice_geom["a"] * self._direct_lattice_vectors()),
+            lattice=Lattice(self.lattice_geom["a"] * dlv),
             species=self.site_comp,
             coords=basis,
             coords_are_cartesian=False,
