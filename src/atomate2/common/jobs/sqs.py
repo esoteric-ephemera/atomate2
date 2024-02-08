@@ -225,7 +225,8 @@ class SQS:
             )
 
         self.scaling = scaling
-        self.sqs_kwargs = sqs_kwargs or {}
+        self.sqs_kwargs = self._defaults.copy()
+        self.sqs_kwargs.update(sqs_kwargs or {})
 
         if sqs_kwargs.get("sqs_method") is None:
             if nsites < 24:
@@ -238,9 +239,8 @@ class SQS:
                 # larger supercells than the icet equivalent
                 self.sqs_kwargs["sqs_method"] = "mcsqs"
 
-        self._workdir = self.sqs_kwargs.get("directory", self._defaults["directory"])
-        if not os.path.isdir(self._workdir):
-            os.makedirs(self._workdir, exist_ok=True)
+        if not os.path.isdir(self.sqs_kwargs.get("directory")):
+            os.makedirs(self.sqs_kwargs.get("directory"), exist_ok=True)
 
     def _sqs(self, instances: int) -> SQSTransformation:
         return SQSTransformation(
@@ -376,7 +376,7 @@ class SQS:
 
         if archive_instances and self.sqs_kwargs["sqs_method"] == "mcsqs":
             # MCSQS is the only SQS maker which requires a working directory
-            archive_name = self.sqs_kwargs["directory"]
+            archive_name = self.sqs_kwargs.get("directory")
             if archive_name[-1] == os.path.sep:
                 archive_name = archive_name[:-1]
             archive_name += ".tar.gz"
