@@ -38,6 +38,7 @@ INCAR:
     F:
       Co: 2
       Cr: 2
+      F: 1
       Fe: 2
       Mn: 2
       Mo: 2
@@ -51,6 +52,7 @@ INCAR:
       Mn: 2
       Mo: 2
       Ni: 2
+      O: 1
       V: 2
       W: 2
   LDAUTYPE: 2
@@ -58,6 +60,7 @@ INCAR:
     F:
       Co: 0.0
       Cr: 0.0
+      F: 0.0
       Fe: 0.0
       Mn: 0.0
       Mo: 0.0
@@ -71,6 +74,7 @@ INCAR:
       Mn: 0.0
       Mo: 0.0
       Ni: 0.0
+      O: 0.0
       V: 0.0
       W: 0.0
   LDAUPRINT: 1
