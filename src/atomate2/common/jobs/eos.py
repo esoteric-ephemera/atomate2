@@ -360,3 +360,10 @@ def apply_strain_to_structure(structure: Structure, deformations: list) -> list:
         )
         transformations += [ts]
     return transformations
+
+@job
+def rescale_volume(structure : Structure, v_final : float) -> Structure:
+    scaling = (v_final/structure.volume)**(1./3.)
+    return DeformStructureTransformation(
+        deformation = scaling*np.eye(3)
+    ).apply_transformation(structure)

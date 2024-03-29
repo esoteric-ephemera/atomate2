@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from jobflow import Maker, job
 from monty.serialization import dumpfn
-from pymatgen.core import Lattice, Structure
+from pymatgen.core import Composition, Lattice, Structure
 from pymatgen.transformations.advanced_transformations import SQSTransformation
 
 if TYPE_CHECKING:
@@ -19,50 +19,6 @@ if TYPE_CHECKING:
     from typing import ClassVar
 
     from numpy.typing import ArrayLike
-    from pymatgen.core import Composition
-
-
-def anonymizer(structure: Structure, starting_letter: int | str = 23) -> Structure:
-    """
-    Anonymize input structure composition.
-
-    Parameters
-    ----------
-    structure : Structure
-        Structure to anonymize composition
-    starting_letter : int | str = 23
-        Letter to start
-
-    Returns
-    -------
-    Structure
-
-    Ex: For a structure with formula Al3 Cu4 Ba2 Ca Dy10 Y,
-    the output structure will have formula X3 Y4 Z2 A B10 C,
-    where the substitution
-        {"Al": "X", "Cu": "Y", "Ba": "Z", "Ca": "A", "Dy": "B", "Y": "C"}
-    was performed.
-    """
-    species = structure.composition.elements
-    letters = list(ascii_uppercase)
-
-    if isinstance(starting_letter, str):
-        starting_letter = letters.index(starting_letter)
-
-    symbols = [
-        letters[(i + starting_letter) % len(letters)] for i in range(len(letters))
-    ]
-    if len(species) > len(symbols):
-        j = 0
-        for i in range(len(species) - len(symbols)):
-            new_char = symbols[i % len(letters)] + "_" + letters[j]
-            symbols.append(new_char)
-            if i % len(letters) == 0:
-                j += 1
-
-    replacement = {elt: symbols[i] for i, elt in enumerate(species)}
-    return structure.replace_species(replacement)
-
 
 class Alloy:
     """Generate an alloy structure with a specified symmetry and site composition."""
@@ -171,6 +127,77 @@ class Alloy:
             symmetry=d["symmetry"],
             site_composition=d["site composition"],
         )
+    
+    @staticmethod
+    def anonymizer(
+        structure: Structure,
+        starting_letter: int | str = 23
+    ) -> Structure:
+        """
+        Anonymize input structure composition.
+
+        Parameters
+        ----------
+        structure : Structure
+            Structure to anonymize composition
+        starting_letter : int | str = 23
+            Letter to start
+
+        Returns
+        -------
+        Structure
+
+        Ex: For a structure with formula Al3 Cu4 Ba2 Ca Dy10 Y,
+        the output structure will have formula X3 Y4 Z2 A B10 C,
+        where the substitution
+            {"Al": "X", "Cu": "Y", "Ba": "Z", "Ca": "A", "Dy": "B", "Y": "C"}
+        was performed.
+        """
+        species = structure.composition.elements
+        letters = list(ascii_uppercase)
+
+        if isinstance(starting_letter, str):
+            starting_letter = letters.index(starting_letter)
+
+        symbols = [
+            letters[(i + starting_letter) % len(letters)] for i in range(len(letters))
+        ]
+        if len(species) > len(symbols):
+            j = 0
+            for i in range(len(species) - len(symbols)):
+                new_char = symbols[i % len(letters)] + "_" + letters[j]
+                symbols.append(new_char)
+                if i % len(letters) == 0:
+                    j += 1
+
+        replacement = {elt: symbols[i] for i, elt in enumerate(species)}
+        anonymous_structure = structure.copy()
+        return anonymous_structure.replace_species(replacement)
+
+    @staticmethod
+    def deanonymizer(
+        anonymous_structure : Structure,
+        target_composition : dict | Composition,
+        ratio_tol : float = 1.e-3
+    ) -> Structure:
+        ratios = {
+            k: v/anonymous_structure.num_sites 
+            for k, v in anonymous_structure.composition.as_dict().items()
+        }
+
+        if isinstance(target_composition,Composition):
+            target_composition = target_composition.remove_charges().as_dict()
+        
+        replace_rules = {}
+        for species, ratio in target_composition.items():
+            current_ratios = {k:v for k,v in ratios.items() if k not in replace_rules}
+            for anon_species, anon_ratio in current_ratios.items():
+                if abs(ratio - anon_ratio) < ratio_tol:
+                    replace_rules[anon_species] = species
+                    break
+
+        structure = anonymous_structure.copy()
+        return structure.replace_species(replace_rules)
 
 
 class SQS:
@@ -364,11 +391,11 @@ class SQS:
                 non_list_keys += ["sqs structures"]
 
             for key in non_list_keys:
-                anonymizer(self.output[key])
+                self.anonymizer(self.output[key])
 
             if "sqs structures" not in non_list_keys:
                 for istruct in range(len(self.output["sqs structures"])):
-                    anonymizer(self.output["sqs structures"][istruct]["structure"])
+                    self.anonymizer(self.output["sqs structures"][istruct]["structure"])
 
         os.chdir(original_directory)
         if output_filename:

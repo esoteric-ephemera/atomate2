@@ -10,7 +10,7 @@ from monty.serialization import loadfn
 
 if TYPE_CHECKING:
     from pathlib import Path
-
+    from pymatgen.core import Structure
 
 def get_transformations(
     transformations: tuple[str, ...], params: tuple[dict, ...] | None
