@@ -18,7 +18,8 @@ _base_param_set = loadfn(
 )
 _base_param_set["POTCAR_FUNCTIONAL"] = "PBE_64"
 _base_param_set["POTCAR"].update({"Ba": "Ba_sv_GW", "Dy": "Dy_h", "Er": "Er_h", "Ho": "Ho_h", "Nd": "Nd_h", "Pm": "Pm_h", "Pr": "Pr_h", "Sm": "Sm_h", "Tb": "Tb_h", "Tm": "Tm_h", "Xe": "Xe_GW", "Yb": "Yb_h"})
-_base_param_set["INCAR"].update({"METAGGA": None, "GGA": "PS", "LREAL": False, "LMAXMIX": 6, "ISMEAR": 2, "SIGMA": 0.2, "ALGO": "NORMAL", "LELF": False})
+_base_param_set["INCAR"].update({"GGA": "PS", "LREAL": False, "LMAXMIX": 6, "ISMEAR": 2, "SIGMA": 0.2, "ALGO": "NORMAL", "LELF": False})
+_base_param_set["INCAR"].pop("METAGGA")
 
 @dataclass
 class AlloyRelaxSetGenerator(RelaxSetGenerator):

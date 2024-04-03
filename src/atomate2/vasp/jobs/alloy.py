@@ -77,9 +77,10 @@ class AlloyEosRelaxMaker(BaseVaspMaker):
         ``{"my_file:txt": "contents of the file"}``.
     """
 
-    name: str = "Alloy relaxation"
+    name: str = "Alloy EOS relaxation"
     input_set_generator: VaspInputGenerator = field(default_factory = AlloyEosRelaxSetGenerator)
 
+@dataclass
 class AlloyStaticMaker(BaseVaspMaker):
     """
     Maker to create VASP alloy static jobs.

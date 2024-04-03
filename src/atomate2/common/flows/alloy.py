@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from jobflow import Flow, Maker
+from jobflow import Flow, job, Maker, Response
 
 from dataclasses import dataclass, field
 
 from atomate2.common.flows.eos import CommonEosMaker
-from atomate2.common.jobs.eos import rescale_volume, PostProcessEosPressure
+from atomate2.common.jobs.eos import rescale_volume, PostProcessEosEnergy
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -24,32 +24,96 @@ class InitialVolumeMaker(Maker):
     """
     name: str = "Alloy EOS volume determination"
     eos_relax_maker: Maker = None
-    static_maker: Maker = None
-    linear_strain: tuple[float, float] = (-0.02, 0.02)
+    max_strain: float = 0.02
     number_of_frames: int | None = None
-    postprocessor: EOSPostProcessor = field(default_factory=PostProcessEosPressure)
+    postprocessor: EOSPostProcessor = field(default_factory = PostProcessEosEnergy)
+    _eos_priority : list[str] = field(
+        default_factory = lambda : [
+            "vinet",
+            "birch_murnaghan",
+            "birch",
+            "pourier_tarantola"
+            "murnaghan"
+        ]
+    )
 
+    @job
     def make(
         self,
         structure: Structure,
+        eos_data : dict | None = None,
         prev_dir: str | Path = None,
     ) -> Flow:
         """Relax alloy structure."""
+
+        if eos_data is None:
+            eos_data = {
+                "relax": {k: [] for k in ("energy","volume","stress")}
+            }
+            self.number_of_frames  = self.number_of_frames or self.postprocessor.min_data_points
+            new_volumes = [
+                (1. - self.max_strain + 2*i*self.max_strain/(self.number_of_frames - 1) )**3 * structure.volume
+                for i in range(self.number_of_frames)
+            ]
+
+        else:
+            self.postprocessor.fit(eos_data)
+            eos_data = {
+                "relax": {
+                    k: self.postprocessor.results["relax"][k]
+                    for k in ("energy","volume","stress")
+                }
+            }
+
+            eos_results = None
+            for eos_name in self._eos_priority:
+                if not self.postprocessor.results["relax"]["EOS"][eos_name].get("exception"):
+                    eos_results = self.postprocessor.results["relax"]["EOS"][eos_name].copy()
+                    break
+
+            if eos_results is None:
+                import json
+                raise ValueError(f"All EOS fits failed!\nEOS data:\n{json.dumps(eos_data['relax'])}")
+
+            v_min = min(eos_data["relax"]["volume"])
+            v_max = max(eos_data["relax"]["volume"])
+
+            if v_min <= eos_results["v0"] and eos_results["v0"] <= v_max:
+                equil_vol_struct = structure.copy()
+                equil_vol_struct.scale_lattice(eos_results["v0"])
+                return equil_vol_struct
+            
+            elif eos_results["v0"] > v_max:
+                new_volumes = [eos_results["v0"], (1. + self.max_strain)**3*eos_results["v0"]]
+            
+            elif eos_results["v0"] < v_min:
+                new_volumes = [(1. - self.max_strain)**3*eos_results["v0"], eos_results["v0"]]
         
-        eos_job = CommonEosMaker(
-            name = self.name + " - EOS fit",
-            initial_relax_maker = None,
-            eos_relax_maker = self.eos_relax_maker,
-            static_maker = self.static_maker,
-            linear_strain = self.linear_strain,
-            number_of_frames = self.number_of_frames or self.postprocessor.min_data_points,
-            postprocessor = self.postprocessor
-        ).make(structure = structure, prev_dir = prev_dir)
+        eos_jobs = []
+        for volume in new_volumes:
+            new_structure = structure.copy()
+            new_structure.scale_lattice(volume)
+            job = self.eos_relax_maker.make(
+                structure = new_structure,
+                prev_dir = prev_dir
+            )
+            job.name += f" deformation {len(eos_data['relax']['volume']) + 1}"
+        
+            eos_data["relax"]["energy"].append(job.output.output.energy)
+            eos_data["relax"]["volume"].append(job.output.structure.volume)
+            eos_data["relax"]["stress"].append(job.output.output.stress)
+            eos_jobs.append(job)
 
-        rescale_job = rescale_volume(structure, eos_job.output["relax"]["EOS"]["v0"])
+        recursive_flow = self.make(
+            structure = structure,
+            eos_data = eos_data,
+            prev_dir = prev_dir,
+        )
 
-        return Flow([eos_job,rescale_job], output = rescale_job.output)
+        new_flow = Flow([*eos_jobs,recursive_flow], output = recursive_flow.output)
+        return Response(replace=new_flow, output=recursive_flow.output)
 
+@dataclass
 class AlloyEquilibrator(Maker):
     """
     Maker to equilibrate an alloy structure.
@@ -81,12 +145,9 @@ class AlloyEquilibrator(Maker):
                 initial_volume[element]*weight for 
                 element, weight in weights.items()
             )
-
-        if initial_volume:
-            initial_volume_rescale = rescale_volume(structure, initial_volume)
-            structure = initial_volume_rescale.output
-            jobs += [initial_volume_rescale]
         
+        structure.scale_lattice(initial_volume)
+            
         initial_volume_job = self.initial_volume_maker.make(
             structure = structure,
             prev_dir = prev_dir,
