@@ -1,4 +1,4 @@
-""" VASP jobs for treating alloys. """
+"""VASP jobs for treating alloys."""
 
 from __future__ import annotations
 
@@ -46,7 +46,10 @@ class AlloyRelaxMaker(BaseVaspMaker):
     """
 
     name: str = "Alloy relaxation"
-    input_set_generator: VaspInputGenerator = field(default_factory=AlloyRelaxSetGenerator)
+    input_set_generator: VaspInputGenerator = field(
+        default_factory=AlloyRelaxSetGenerator
+    )
+
 
 @dataclass
 class AlloyEosRelaxMaker(BaseVaspMaker):
@@ -78,7 +81,10 @@ class AlloyEosRelaxMaker(BaseVaspMaker):
     """
 
     name: str = "Alloy EOS relaxation"
-    input_set_generator: VaspInputGenerator = field(default_factory = AlloyEosRelaxSetGenerator)
+    input_set_generator: VaspInputGenerator = field(
+        default_factory=AlloyEosRelaxSetGenerator
+    )
+
 
 @dataclass
 class AlloyStaticMaker(BaseVaspMaker):
@@ -110,4 +116,6 @@ class AlloyStaticMaker(BaseVaspMaker):
     """
 
     name: str = "Alloy static"
-    input_set_generator: VaspInputGenerator = field(default_factory=AlloyStaticSetGenerator)
+    input_set_generator: VaspInputGenerator = field(
+        default_factory=AlloyStaticSetGenerator
+    )

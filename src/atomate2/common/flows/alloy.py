@@ -32,7 +32,8 @@ class InitialVolumeMaker(Maker):
             "vinet",
             "birch_murnaghan",
             "birch",
-            "pourier_tarantola" "murnaghan",
+            "pourier_tarantola",
+            "murnaghan",
         ]
     )
 

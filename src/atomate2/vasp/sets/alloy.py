@@ -1,11 +1,12 @@
-""" Create VASP input sets for alloys. """
+"""Create VASP input sets for alloys."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from importlib.resources import files as get_mod_path
-from monty.serialization import loadfn
 from typing import TYPE_CHECKING
+
+from monty.serialization import loadfn
 
 from atomate2.vasp.sets.core import RelaxSetGenerator, StaticSetGenerator
 
@@ -17,9 +18,35 @@ _base_param_set = loadfn(
     get_mod_path("atomate2.vasp.sets") / "BaseMPR2SCANRelaxSet.yaml"
 )
 _base_param_set["POTCAR_FUNCTIONAL"] = "PBE_64"
-_base_param_set["POTCAR"].update({"Ba": "Ba_sv_GW", "Dy": "Dy_h", "Er": "Er_h", "Ho": "Ho_h", "Nd": "Nd_h", "Pm": "Pm_h", "Pr": "Pr_h", "Sm": "Sm_h", "Tb": "Tb_h", "Tm": "Tm_h", "Xe": "Xe_GW", "Yb": "Yb_h"})
-_base_param_set["INCAR"].update({"GGA": "PS", "LREAL": False, "LMAXMIX": 6, "ISMEAR": 2, "SIGMA": 0.2, "ALGO": "NORMAL", "LELF": False})
+_base_param_set["POTCAR"].update(
+    {
+        "Ba": "Ba_sv_GW",
+        "Dy": "Dy_h",
+        "Er": "Er_h",
+        "Ho": "Ho_h",
+        "Nd": "Nd_h",
+        "Pm": "Pm_h",
+        "Pr": "Pr_h",
+        "Sm": "Sm_h",
+        "Tb": "Tb_h",
+        "Tm": "Tm_h",
+        "Xe": "Xe_GW",
+        "Yb": "Yb_h",
+    }
+)
+_base_param_set["INCAR"].update(
+    {
+        "GGA": "PS",
+        "LREAL": False,
+        "LMAXMIX": 6,
+        "ISMEAR": 2,
+        "SIGMA": 0.2,
+        "ALGO": "NORMAL",
+        "LELF": False,
+    }
+)
 _base_param_set["INCAR"].pop("METAGGA")
+
 
 @dataclass
 class AlloyRelaxSetGenerator(RelaxSetGenerator):
@@ -29,7 +56,6 @@ class AlloyRelaxSetGenerator(RelaxSetGenerator):
     auto_ismear: bool = False
     auto_kspacing: bool = False
     inherit_incar: bool | None = False
-
 
     def get_incar_updates(
         self,
@@ -60,12 +86,8 @@ class AlloyRelaxSetGenerator(RelaxSetGenerator):
         dict
             A dictionary of updates to apply.
         """
-        return {
-            "LWAVE": True,
-            "LCHARG": False,
-            "LAECHG": False,
-            "LVTOT": False
-        }
+        return {"LWAVE": True, "LCHARG": False, "LAECHG": False, "LVTOT": False}
+
 
 @dataclass
 class AlloyEosRelaxSetGenerator(RelaxSetGenerator):
@@ -110,7 +132,7 @@ class AlloyEosRelaxSetGenerator(RelaxSetGenerator):
             "LWAVE": False,
             "LCHARG": False,
             "LAECHG": False,
-            "LVTOT": False
+            "LVTOT": False,
         }
 
 

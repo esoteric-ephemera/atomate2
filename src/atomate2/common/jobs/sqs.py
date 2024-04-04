@@ -20,15 +20,16 @@ if TYPE_CHECKING:
 
     from numpy.typing import ArrayLike
 
+
 class Alloy:
     """Generate an alloy structure with a specified symmetry and site composition."""
 
     _avail_symm: ClassVar[dict] = {
-        "bcc": ("Im-3m", 229),
-        "ds": ("Fd-3m", 227),
-        "fcc": ("Fm-3m", 225),
-        "zb": ("F-43m", 216),
-        "hcp": ("P6_3/mmc", 194),
+        "bcc": {"HM": "Im-3m", "SGI": 229},
+        "ds": {"HM": "Fd-3m", "SGI": 227},
+        "fcc": {"HM": "Fm-3m", "SGI": 225},
+        "zb": {"HM": "F-43m", "SGI": 216},
+        "hcp": {"HM": "P6_3/mmc", "SGI": 194},
     }
 
     def __init__(
@@ -67,8 +68,8 @@ class Alloy:
 
     def _get_symmetry(self, symm: str | int) -> str:
         symmetry = None
-        for symm_key in self._avail_symm:
-            if symm == symm_key or symm in self._avail_symm[symm_key]:
+        for symm_key, symm_reps in self._avail_symm.items():
+            if symm == symm_key or symm in symm_reps.values():
                 symmetry = symm_key
                 break
         return symmetry
@@ -127,12 +128,9 @@ class Alloy:
             symmetry=d["symmetry"],
             site_composition=d["site composition"],
         )
-    
+
     @staticmethod
-    def anonymizer(
-        structure: Structure,
-        starting_letter: int | str = 23
-    ) -> Structure:
+    def anonymizer(structure: Structure, starting_letter: int | str = 23) -> Structure:
         """
         Anonymize input structure composition.
 
@@ -176,21 +174,21 @@ class Alloy:
 
     @staticmethod
     def deanonymizer(
-        anonymous_structure : Structure,
-        target_composition : dict | Composition,
-        ratio_tol : float = 1.e-3
+        anonymous_structure: Structure,
+        target_composition: dict | Composition,
+        ratio_tol: float = 1.0e-3,
     ) -> Structure:
         ratios = {
-            k: v/anonymous_structure.num_sites 
+            k: v / anonymous_structure.num_sites
             for k, v in anonymous_structure.composition.as_dict().items()
         }
 
-        if isinstance(target_composition,Composition):
+        if isinstance(target_composition, Composition):
             target_composition = target_composition.remove_charges().as_dict()
-        
+
         replace_rules = {}
         for species, ratio in target_composition.items():
-            current_ratios = {k:v for k,v in ratios.items() if k not in replace_rules}
+            current_ratios = {k: v for k, v in ratios.items() if k not in replace_rules}
             for anon_species, anon_ratio in current_ratios.items():
                 if abs(ratio - anon_ratio) < ratio_tol:
                     replace_rules[anon_species] = species
