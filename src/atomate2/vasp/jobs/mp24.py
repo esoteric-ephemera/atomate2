@@ -7,8 +7,12 @@ Contact @esoteric-ephemera for questions.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
+
+from jobflow import job
+from monty.os import zpath
 
 from atomate2.vasp.jobs.base import BaseVaspMaker
 from atomate2.vasp.sets.mp24 import (
@@ -16,9 +20,12 @@ from atomate2.vasp.sets.mp24 import (
     MP24GGAStaticSetGenerator,
     MP24MetaGGARelaxSetGenerator,
     MP24MetaGGAStaticSetGenerator,
+    MP24PBEsolPreRelaxSetGenerator,
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from atomate2.vasp.sets.base import VaspInputGenerator
 
 
@@ -95,7 +102,7 @@ class MP24GGAPreRelaxMaker(BaseVaspMaker):
             user_incar_settings={
                 "EDIFFG": -0.05,
                 "LWAVE": True,
-                "LCHARG": True,
+                "LCHARG": False,
             },
         )
     )
@@ -167,15 +174,7 @@ class MP24MetaGGAPreRelaxMaker(BaseVaspMaker):
 
     name: str = "MP 2024 PBEsol pre-relax"
     input_set_generator: VaspInputGenerator = field(
-        default_factory=lambda: MP24MetaGGARelaxSetGenerator(
-            user_incar_settings={
-                "EDIFFG": -0.05,
-                "GGA": "PS",
-                "LWAVE": True,
-                "LCHARG": True,
-                "METAGGA": None,
-            },
-        )
+        default_factory=MP24PBEsolPreRelaxSetGenerator
     )
 
 
@@ -247,3 +246,27 @@ class MP24MetaGGAStaticMaker(BaseVaspMaker):
     input_set_generator: VaspInputGenerator = field(
         default_factory=MP24MetaGGAStaticSetGenerator
     )
+
+
+@job
+def _clean_up_files(file_names: Sequence[str], allow_zpath: bool = True) -> None:
+    """
+    Remove files from previous jobs.
+
+    At the end of an MP flow, unnecessary WAVECAR files are generated
+    that take up a lot of disk space.
+
+    Args:
+        file_names : Sequence[str]
+            The list of file names (possibly with host names) to remove.
+        allow_zpath : bool = True
+            Whether to allow checking for gzipped output using `monty.os.zpath`
+    """
+    for file_host_name in file_names:
+        # strip off hostname
+        file_name = file_host_name.split(":")[-1]
+        if allow_zpath:
+            file_name = zpath(file_name)
+
+        if os.path.isfile(file_name):
+            os.remove(file_name)

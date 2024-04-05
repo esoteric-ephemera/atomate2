@@ -65,6 +65,8 @@ class MP24GGARelaxSetGenerator(RelaxSetGenerator):
         return {
             "GGA": "PE",
             "METAGGA": None,
+            "LWAVE": True,
+            "LCHARG": False,
         }
 
 
@@ -112,8 +114,57 @@ class MP24GGAStaticSetGenerator(StaticSetGenerator):
             "ALGO": "FAST",
             "NSW": 0,
             "LCHARG": True,
+            "LAECHG": True,
+            "LVTOT": True,
             "LWAVE": False,
             "ISMEAR": -5,
+        }
+
+
+@dataclass
+class MP24PBEsolPreRelaxSetGenerator(RelaxSetGenerator):
+    """Class to generate MP 2024-compatible VASP meta-GGA relax input sets."""
+
+    config_dict: dict = field(default_factory=lambda: _BASE_MP24_RELAX_SET)
+    auto_ismear: bool = False
+    auto_kspacing: bool = True
+    bandgap_tol: float = 1e-4
+
+    def get_incar_updates(
+        self,
+        structure: Structure,
+        prev_incar: dict = None,
+        bandgap: float = None,
+        vasprun: Vasprun = None,
+        outcar: Outcar = None,
+    ) -> dict:
+        """
+        Get updates to the INCAR for this calculation type.
+
+        Parameters
+        ----------
+        structure
+            A structure.
+        prev_incar
+            An incar from a previous calculation.
+        bandgap
+            The band gap.
+        vasprun
+            A vasprun from a previous calculation.
+        outcar
+            An outcar from a previous calculation.
+
+        Returns
+        -------
+        dict
+            A dictionary of updates to apply.
+        """
+        return {
+            "EDIFFG": -0.05,
+            "GGA": "PS",
+            "LWAVE": True,
+            "LCHARG": False,
+            "METAGGA": None,
         }
 
 
@@ -155,7 +206,7 @@ class MP24MetaGGARelaxSetGenerator(RelaxSetGenerator):
         dict
             A dictionary of updates to apply.
         """
-        return {"LCHARG": True, "LWAVE": True, "GGA": None}
+        return {"LCHARG": False, "LWAVE": True, "GGA": None}
 
 
 @dataclass
@@ -201,7 +252,9 @@ class MP24MetaGGAStaticSetGenerator(StaticSetGenerator):
             "GGA": None,  # unset GGA, shouldn't be set anyway but best be sure
             "NSW": 0,
             "LCHARG": True,
+            "LAECHG": True,
             "LWAVE": False,
+            "LVTOT": True,
             "LREAL": False,
             "ISMEAR": -5,
         }

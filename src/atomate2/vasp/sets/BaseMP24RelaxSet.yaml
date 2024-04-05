@@ -2,7 +2,7 @@
 # using the Regularized-Restored Strongly Constrained and Appropriately
 # Normed functional (r2SCAN).
 INCAR:
-  ALGO: ALL
+  ALGO: Normal
   EDIFF: 1.e-05
   EDIFFG: -0.02
   ENAUG: 1360
@@ -12,9 +12,9 @@ INCAR:
   ISMEAR: 0 # included to have some reasonable default
   ISPIN: 2
   KSPACING: 0.22 # included to have some reasonable default
-  LAECHG: True
+  LAECHG: False
   LASPH: True
-  LDAU: true
+  LDAU: False
   LDAUJ:
     F:
       Co: 0
@@ -84,7 +84,7 @@ INCAR:
   LMIXTAU: True
   LORBIT: 11
   LREAL: False
-  LVTOT: True
+  LVTOT: False
   LWAVE: False
   METAGGA: R2SCAN
   NELM: 200
