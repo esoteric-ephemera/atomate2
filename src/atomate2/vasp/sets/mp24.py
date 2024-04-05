@@ -4,6 +4,7 @@ Module defining Materials Project 2024 parameters.
 These are not the atomate 1-compatible sets!
 Contact @esoteric-ephemera for questions.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
