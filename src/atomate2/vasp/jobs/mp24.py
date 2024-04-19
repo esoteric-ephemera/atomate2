@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from jobflow import job
-from monty.os import zpath
+from monty.os.path import zpath
 
 from atomate2.vasp.jobs.base import BaseVaspMaker
 from atomate2.vasp.sets.mp24 import (
