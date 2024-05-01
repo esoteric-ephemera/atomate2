@@ -9,6 +9,9 @@ In case of questions, consult @Andrew-S-Rosen, @esoteric-ephemera or @janosh.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from jobflow import job
+import os
+from monty.os.path import zpath
 from typing import TYPE_CHECKING
 
 from atomate2.vasp.jobs.base import BaseVaspMaker
@@ -20,6 +23,7 @@ from atomate2.vasp.sets.mp import (
 )
 
 if TYPE_CHECKING:
+    from typing import Sequence
     from atomate2.vasp.sets.base import VaspInputGenerator
 
 
@@ -204,3 +208,26 @@ class MPMetaGGAStaticMaker(BaseVaspMaker):
     input_set_generator: VaspInputGenerator = field(
         default_factory=MPMetaGGAStaticSetGenerator
     )
+
+@job
+def _clean_up_files(file_names: Sequence[str], allow_zpath: bool = True) -> None:
+    """
+    Remove files from previous jobs.
+
+    At the end of an MP flow, unnecessary WAVECAR files are generated
+    that take up a lot of disk space.
+
+    Args:
+        file_names : Sequence[str]
+            The list of file names (possibly with host names) to remove.
+        allow_zpath : bool = True
+            Whether to allow checking for gzipped output using `monty.os.zpath`
+    """
+    for file_host_name in file_names:
+        # strip off hostname
+        file_name = file_host_name.split(":")[-1]
+        if allow_zpath:
+            file_name = zpath(file_name)
+
+        if os.path.isfile(file_name):
+            os.remove(file_name)

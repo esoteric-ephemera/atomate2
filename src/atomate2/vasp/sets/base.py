@@ -19,6 +19,7 @@ from pymatgen.electronic_structure.core import Magmom
 from pymatgen.io.core import InputGenerator, InputSet
 from pymatgen.io.vasp import Incar, Kpoints, Outcar, Poscar, Potcar, Vasprun
 from pymatgen.io.vasp.sets import (
+    auto_kspacing,
     BadInputSetWarning,
     get_valid_magmom_struct,
     get_vasprun_outcar,
@@ -1102,19 +1103,6 @@ def _get_recommended_lreal(structure: Structure) -> str | bool:
     """Get recommended LREAL flag based on the structure."""
     return "Auto" if structure.num_sites > 16 else False
 
-
-def _get_kspacing(bandgap: float, tol: float = 1e-4) -> float:
-    """Get KSPACING based on a band gap."""
-    if bandgap <= tol:  # metallic
-        return 0.22
-
-    rmin = max(1.5, 25.22 - 2.87 * bandgap)  # Eq. 25
-    kspacing = 2 * np.pi * 1.0265 / (rmin - 1.0183)  # Eq. 29
-
-    # cap kspacing at a max of 0.44, per internal benchmarking
-    return min(kspacing, 0.44)
-
-
 def _set_kspacing(
     incar: Incar,
     incar_settings: dict,
@@ -1150,7 +1138,7 @@ def _set_kspacing(
         # will always default to 0.22 in first run as one
         # cannot be sure if one treats a metal or
         # semiconductor/insulator
-        incar["KSPACING"] = _get_kspacing(bandgap)
+        incar["KSPACING"] = auto_kspacing(bandgap)
         # This should default to ISMEAR=0 if band gap is not known (first computation)
         # if not from_prev:
         #     # be careful to not override user_incar_settings

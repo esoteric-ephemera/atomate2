@@ -19,6 +19,7 @@ from atomate2.forcefields.md import (
     MACEMDMaker,
     NequipMDMaker,
 )
+#from atomate2.forcefields.jobs import CHGNetRelaxMaker
 
 name_to_maker = {
     "CHGNet": CHGNetMDMaker,

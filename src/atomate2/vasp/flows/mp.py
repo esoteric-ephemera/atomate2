@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+import os
 from typing import TYPE_CHECKING
 
 from jobflow import Flow, Maker
@@ -23,6 +24,7 @@ from atomate2.vasp.jobs.mp import (
     MPMetaGGARelaxMaker,
     MPMetaGGAStaticMaker,
     MPPreRelaxMaker,
+    _clean_up_files,
 )
 from atomate2.vasp.sets.mp import MPGGAStaticSetGenerator
 
@@ -30,8 +32,8 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from pathlib import Path
-
     from pymatgen.core.structure import Structure
+    from typing import Sequence
 
     from atomate2.vasp.jobs.base import BaseVaspMaker
 
@@ -97,6 +99,10 @@ class MPGGADoubleRelaxStaticMaker(Maker):
         Maker to generate the relaxation.
     static_maker : .BaseVaspMaker
         Maker to generate the static calculation before the relaxation.
+    clean_files : Sequence[str] | None = ("WAVECAR",)
+        If a Sequence of str, a list of files from all calcs to remove.
+        If None, removes no files. Used by default to remove intermediate WAVECARs
+        that stabilize convergence.
     """
 
     name: str = "MP GGA relax"
@@ -106,6 +112,7 @@ class MPGGADoubleRelaxStaticMaker(Maker):
             copy_vasp_kwargs={"additional_vasp_files": ("WAVECAR", "CHGCAR")}
         )
     )
+    clean_files: Sequence[str] | None = ("WAVECAR",)
 
     def make(self, structure: Structure, prev_dir: str | Path | None = None) -> Flow:
         """
@@ -134,6 +141,14 @@ class MPGGADoubleRelaxStaticMaker(Maker):
             )
             output = static_job.output
             jobs += [static_job]
+        
+        if (self.clean_files is not None) and len(self.clean_files) > 0:
+            to_rm = []
+            for file_name in self.clean_files:
+                to_rm.extend([os.path.join(job.dir_name, file_name) for job in jobs])
+            rm_job = _clean_up_files(to_rm, allow_zpath=True)
+            rm_job.name = "Clean up files"
+            jobs += [rm_job]
 
         return Flow(jobs=jobs, output=output, name=self.name)
 
