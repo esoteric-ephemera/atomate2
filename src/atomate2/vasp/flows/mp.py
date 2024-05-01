@@ -9,8 +9,8 @@ In case of questions, consult @Andrew-S-Rosen, @esoteric-ephemera or @janosh.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
 import os
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from jobflow import Flow, Maker
@@ -31,9 +31,10 @@ from atomate2.vasp.sets.mp import MPGGAStaticSetGenerator
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from pathlib import Path
+
     from pymatgen.core.structure import Structure
-    from typing import Sequence
 
     from atomate2.vasp.jobs.base import BaseVaspMaker
 
@@ -141,7 +142,7 @@ class MPGGADoubleRelaxStaticMaker(Maker):
             )
             output = static_job.output
             jobs += [static_job]
-        
+
         if (self.clean_files is not None) and len(self.clean_files) > 0:
             to_rm = []
             for file_name in self.clean_files:

@@ -8,11 +8,12 @@ In case of questions, consult @Andrew-S-Rosen, @esoteric-ephemera or @janosh.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from jobflow import job
 import os
-from monty.os.path import zpath
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
+
+from jobflow import job
+from monty.os.path import zpath
 
 from atomate2.vasp.jobs.base import BaseVaspMaker
 from atomate2.vasp.sets.mp import (
@@ -23,7 +24,8 @@ from atomate2.vasp.sets.mp import (
 )
 
 if TYPE_CHECKING:
-    from typing import Sequence
+    from collections.abc import Sequence
+
     from atomate2.vasp.sets.base import VaspInputGenerator
 
 
@@ -208,6 +210,7 @@ class MPMetaGGAStaticMaker(BaseVaspMaker):
     input_set_generator: VaspInputGenerator = field(
         default_factory=MPMetaGGAStaticSetGenerator
     )
+
 
 @job
 def _clean_up_files(file_names: Sequence[str], allow_zpath: bool = True) -> None:

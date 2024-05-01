@@ -11,13 +11,19 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from pymatgen.io.vasp.sets import MPRelaxSet, MPStaticSet, MPScanRelaxSet, MPScanStaticSet
+from pymatgen.io.vasp.sets import (
+    MPRelaxSet,
+    MPScanRelaxSet,
+    MPScanStaticSet,
+    MPStaticSet,
+)
 
 from atomate2.vasp.sets.core import RelaxSetGenerator, StaticSetGenerator
 
 if TYPE_CHECKING:
     from pymatgen.core import Structure
     from pymatgen.io.vasp import Outcar, Vasprun
+
 
 @dataclass
 class MPGGARelaxSetGenerator(RelaxSetGenerator):
@@ -37,6 +43,7 @@ class MPGGAStaticSetGenerator(StaticSetGenerator):
     auto_ismear: bool = False
     auto_kspacing: bool = True
     inherit_incar: bool | None = False
+
 
 @dataclass
 class MPMetaGGAStaticSetGenerator(StaticSetGenerator):
@@ -78,6 +85,7 @@ class MPMetaGGAStaticSetGenerator(StaticSetGenerator):
             A dictionary of updates to apply.
         """
         return {"LWAVE": False}
+
 
 @dataclass
 class MPMetaGGARelaxSetGenerator(RelaxSetGenerator):

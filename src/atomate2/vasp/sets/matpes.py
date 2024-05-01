@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from pymatgen.core import Structure
     from pymatgen.io.vasp import Outcar, Vasprun
 
+
 @dataclass
 class MatPesGGAStaticSetGenerator(VaspInputGenerator):
     """Class to generate MP-compatible VASP GGA static input sets."""
@@ -24,6 +25,7 @@ class MatPesGGAStaticSetGenerator(VaspInputGenerator):
     config_dict: dict = field(default_factory=lambda: MatPESStaticSet()._config_dict)
     auto_ismear: bool = False
     auto_kspacing: bool = False
+
 
 @dataclass
 class MatPesMetaGGAStaticSetGenerator(MatPesGGAStaticSetGenerator):
@@ -58,4 +60,9 @@ class MatPesMetaGGAStaticSetGenerator(MatPesGGAStaticSetGenerator):
         dict
             A dictionary of updates to apply.
         """
-        return {"METAGGA": "R2SCAN", "ALGO": "ALL", "GGA": None, "LWAVE": False}  # unset GGA
+        return {
+            "METAGGA": "R2SCAN",
+            "ALGO": "ALL",
+            "GGA": None,
+            "LWAVE": False,
+        }  # unset GGA
