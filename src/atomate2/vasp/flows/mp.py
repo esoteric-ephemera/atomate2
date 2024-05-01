@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass, field
+import os
 from typing import TYPE_CHECKING
 
 from jobflow import Flow, Maker
@@ -33,8 +34,8 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
-
     from pymatgen.core.structure import Structure
+    from typing import Sequence
 
     from atomate2.vasp.jobs.base import BaseVaspMaker
 
@@ -142,6 +143,14 @@ class MPGGADoubleRelaxStaticMaker(Maker):
             )
             output = static_job.output
             jobs += [static_job]
+        
+        if (self.clean_files is not None) and len(self.clean_files) > 0:
+            to_rm = []
+            for file_name in self.clean_files:
+                to_rm.extend([os.path.join(job.dir_name, file_name) for job in jobs])
+            rm_job = _clean_up_files(to_rm, allow_zpath=True)
+            rm_job.name = "Clean up files"
+            jobs += [rm_job]
 
         if (self.clean_files is not None) and len(self.clean_files) > 0:
             to_rm = []

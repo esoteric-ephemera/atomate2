@@ -19,6 +19,7 @@ from pymatgen.electronic_structure.core import Magmom
 from pymatgen.io.core import InputGenerator, InputSet
 from pymatgen.io.vasp import Incar, Kpoints, Outcar, Poscar, Potcar, Vasprun
 from pymatgen.io.vasp.sets import (
+    auto_kspacing,
     BadInputSetWarning,
     auto_kspacing,
     get_valid_magmom_struct,
@@ -1082,7 +1083,6 @@ def _get_ispin(vasprun: Vasprun | None, outcar: Outcar | None) -> int:
 def _get_recommended_lreal(structure: Structure) -> str | bool:
     """Get recommended LREAL flag based on the structure."""
     return "Auto" if structure.num_sites > 16 else False
-
 
 def _set_kspacing(
     incar: Incar,

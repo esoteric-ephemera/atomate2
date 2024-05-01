@@ -10,6 +10,9 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from jobflow import job
+import os
+from monty.os.path import zpath
 from typing import TYPE_CHECKING
 
 from jobflow import job
