@@ -44,7 +44,6 @@ class MPGGAStaticSetGenerator(StaticSetGenerator):
     auto_kspacing: bool = True
     inherit_incar: bool | None = False
 
-
 @dataclass
 class MPMetaGGAStaticSetGenerator(StaticSetGenerator):
     """Class to generate MP-compatible VASP GGA static input sets."""
