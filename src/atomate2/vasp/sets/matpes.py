@@ -39,8 +39,7 @@ class MatPesMetaGGAStaticSetGenerator(MatPesGGAStaticSetGenerator):
         vasprun: Vasprun = None,
         outcar: Outcar = None,
     ) -> dict:
-        """
-        Get updates to the INCAR for this calculation type.
+        """Get updates to the INCAR for this calculation type.
 
         Parameters
         ----------
