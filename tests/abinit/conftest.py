@@ -126,13 +126,13 @@ def check_run_abi(ref_path: str | Path):
 
     user = AbinitInputFile.from_file("run.abi")
     assert user.ndtset == 1, f"'run.abi' has multiple datasets (ndtset={user.ndtset})."
-    with zopen(ref_path / "inputs" / "run.abi.gz") as file:
+    with zopen(ref_path / "inputs" / "run.abi.gz", "rt", encoding="utf-8") as file:
         ref_str = file.read()
-    ref = AbinitInputFile.from_string(ref_str.decode("utf-8"))
+    ref = AbinitInputFile.from_string(ref_str)
     # Ignore the pseudos as the directory depends on the pseudo root directory
     diffs = user.get_differences(ref, ignore_vars=["pseudos"])
     # TODO: should we still add some check on the pseudos here ?
-    assert diffs == [], "'run.abi' is different from reference."
+    assert diffs == [], f"'run.abi' is different from reference:\n{diffs}"
 
 
 def check_abinit_input_json(ref_path: str | Path):
