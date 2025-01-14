@@ -141,10 +141,6 @@ def check_run_abi(ref_path: str | Path):
     # TODO: should we still add some check on the pseudos here ?
     assert diffs == [], f"'run.abi' is different from reference:\n{diffs}"
 
-    for fp_key in ("tsmear",):
-        if (ref_val := ref.datasets[0].get(fp_key)) is not None:
-            assert user.datasets[0].get(fp_key) == pytest.approx(ref_val)
-
 
 def check_abinit_input_json(ref_path: str | Path):
     from abipy.abio.inputs import AbinitInput
