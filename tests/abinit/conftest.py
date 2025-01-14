@@ -130,9 +130,20 @@ def check_run_abi(ref_path: str | Path):
         ref_str = file.read()
     ref = AbinitInputFile.from_string(ref_str)
     # Ignore the pseudos as the directory depends on the pseudo root directory
-    diffs = user.get_differences(ref, ignore_vars=["pseudos"])
+    # The `get_differences` method doesn't take into account floating point
+    # precision - this check might fail, e.g., (real CI example):
+    # ```
+    # The variable 'tsmear' is different in the two files:
+    # - this file:  '0.0036749322175665 Ha'
+    # - other file: '0.0036749322175655 Ha'`
+    # ```
+    diffs = user.get_differences(ref, ignore_vars=["pseudos", "tsmear"])
     # TODO: should we still add some check on the pseudos here ?
     assert diffs == [], f"'run.abi' is different from reference:\n{diffs}"
+
+    for fp_key in ("tsmear",):
+        if (ref_val := ref.datasets[0].get(fp_key)) is not None:
+            assert user.datasets[0].get(fp_key) == pytest.approx(ref_val)
 
 
 def check_abinit_input_json(ref_path: str | Path):
