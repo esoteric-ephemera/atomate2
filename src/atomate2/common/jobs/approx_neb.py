@@ -10,6 +10,7 @@ from emmet.core.vasp.task_valid import TaskState
 from jobflow import Flow, Response, job
 from pymatgen.analysis.diffusion.neb.pathfinder import ChgcarPotential, NEBPathfinder
 from pymatgen.core import Element
+import math
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -260,6 +261,7 @@ def get_images_and_relax(
     """
     # remove failed output and strip magmoms to avoid "Bravais" errors
     ep_structures = {}
+
     for k, calc in ep_output.items():
         if calc["structure"] is None:
             continue
@@ -284,6 +286,7 @@ def get_images_and_relax(
             # all elements have an atomic radius in pymatgen
             min_hop_distance = atomic_radius
 
+    i = 0
     for hop_idx, combo in enumerate(inserted_combo_list):
         ini_ind, fin_ind = combo.split("+")
 
@@ -292,13 +295,14 @@ def get_images_and_relax(
         if not all(ep_structures.get(idx) for idx in [ini_ind, fin_ind]):
             # At least one endpoint calculation failed
             skip_reasons.append(HopFailureReason.ENDPOINT)
-        if (
-            isinstance(min_hop_distance, float)
+        elif (
+            math.isnan(min_hop_distance) #isinstance(min_hop_distance, float)
+            or (isinstance(min_hop_distance, float)
             and get_hop_distance_from_endpoints(
                 [ep_structures[ini_ind], ep_structures[fin_ind]], working_ion
             )
             < min_hop_distance
-        ):
+        )):
             # The working ion hop distance is below the specified threshold
             skip_reasons.append(HopFailureReason.MIN_DIST)
 
@@ -307,14 +311,18 @@ def get_images_and_relax(
             continue
 
         # potential place for uuid logic if depth first is desirable
-        pathfinder_output = get_pathfinder_results(
-            ep_structures[ini_ind],
-            ep_structures[fin_ind],
-            working_ion,
-            n_images[hop_idx],
-            host_chgcar,
-        )
-        images_list = pathfinder_output["images"]
+        try:
+            pathfinder_output = get_pathfinder_results(
+                ep_structures[ini_ind],
+                ep_structures[fin_ind],
+                working_ion,
+                n_images[hop_idx],
+                host_chgcar,
+            )
+            images_list = pathfinder_output["images"]
+        except Exception as e:
+            skip_reasons.append(HopFailureReason.ENDPOINT)
+            continue
 
         # add selective dynamics to structure
         if selective_dynamics_scheme == "fix_two_atoms":
