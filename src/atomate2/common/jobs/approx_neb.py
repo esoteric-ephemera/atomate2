@@ -10,7 +10,6 @@ from emmet.core.vasp.task_valid import TaskState
 from jobflow import Flow, Response, job
 from pymatgen.analysis.diffusion.neb.pathfinder import ChgcarPotential, NEBPathfinder
 from pymatgen.core import Element
-import math
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -286,7 +285,6 @@ def get_images_and_relax(
             # all elements have an atomic radius in pymatgen
             min_hop_distance = atomic_radius
 
-    i = 0
     for hop_idx, combo in enumerate(inserted_combo_list):
         ini_ind, fin_ind = combo.split("+")
 
