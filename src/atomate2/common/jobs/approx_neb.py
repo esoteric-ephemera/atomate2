@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+from collections import defaultdict
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -188,7 +190,7 @@ def collate_results(
         )
 
         hop_dist[combo_name] = get_hop_distance_from_endpoints(
-            [ep_calc["structure"] for ep_calc in endpoint_calcs], working_ion
+            [ep_calc["structure"] for ep_calc in endpoint_calcs], working_ion, tol=0.3
         )
 
     return NebPathwayResult(
@@ -294,13 +296,12 @@ def get_images_and_relax(
             # At least one endpoint calculation failed
             skip_reasons.append(HopFailureReason.ENDPOINT)
         elif (
-            math.isnan(min_hop_distance) #isinstance(min_hop_distance, float)
-            or (isinstance(min_hop_distance, float)
+            isinstance(min_hop_distance, float)
             and get_hop_distance_from_endpoints(
-                [ep_structures[ini_ind], ep_structures[fin_ind]], working_ion
+                [ep_structures[ini_ind], ep_structures[fin_ind]], working_ion, tol=0.3
             )
             < min_hop_distance
-        )):
+        ):
             # The working ion hop distance is below the specified threshold
             skip_reasons.append(HopFailureReason.MIN_DIST)
 
@@ -309,18 +310,18 @@ def get_images_and_relax(
             continue
 
         # potential place for uuid logic if depth first is desirable
-        try:
-            pathfinder_output = get_pathfinder_results(
-                ep_structures[ini_ind],
-                ep_structures[fin_ind],
-                working_ion,
-                n_images[hop_idx],
-                host_chgcar,
-            )
-            images_list = pathfinder_output["images"]
-        except Exception as e:
-            skip_reasons.append(HopFailureReason.ENDPOINT)
-            continue
+        # try:
+        pathfinder_output = get_pathfinder_results(
+            ep_structures[ini_ind],
+            ep_structures[fin_ind],
+            working_ion,
+            n_images[hop_idx],
+            host_chgcar,
+        )
+        images_list = pathfinder_output["images"]
+        # except Exception:
+        #    skip_reasons.append(HopFailureReason.ENDPOINT)
+        #    continue
 
         # add selective dynamics to structure
         if selective_dynamics_scheme == "fix_two_atoms":
@@ -482,7 +483,7 @@ def get_working_ion_index(
 
 
 def get_hop_distance_from_endpoints(
-    endpoint_structures: Sequence[Structure], working_ion: CompositionLike
+    endpoint_structures: Sequence[Structure], working_ion: CompositionLike, tol: float
 ) -> float:
     """
     Find the hop distance of a working ion from two endpoint structures.
@@ -498,6 +499,8 @@ def get_hop_distance_from_endpoints(
     -------
     float - the hop distance
     """
+    logger = logging.getLogger(__name__)
+
     working_ion_sites = [
         [
             site
@@ -507,11 +510,29 @@ def get_hop_distance_from_endpoints(
         for ep_idx in range(2)
     ]
 
-    return max(
-        np.linalg.norm(site_a.coords - site_b.coords)
-        for site_a in working_ion_sites[0]
-        for site_b in working_ion_sites[1]
-    )
+    sitea_coords = np.array([site.frac_coords for site in working_ion_sites[0]])
+    siteb_coords = np.array([site.frac_coords for site in working_ion_sites[1]])
+
+    dist_matrix = [
+        endpoint_structures[0].lattice.get_all_distances(sitea_coords, siteb_coords)
+    ]
+    site_mappings: dict[int, list[int]] = defaultdict(list)
+    unmapped_start_idxs = []
+    for idx, row in enumerate(dist_matrix):
+        ind = np.where(row < tol)[0]
+        if len(ind) == 1:
+            site_mappings[idx].append(ind[0])
+        else:
+            unmapped_start_idxs.append(idx)
+
+        if len(unmapped_start_idxs) == 1:
+            unmapped_start_ind = unmapped_start_idxs[0]
+        else:
+            logger.debug("Too many working ions. Consider lowering the tolerance.")
+            return 10e-6
+
+        site_a, site_b = [sites[unmapped_start_ind] for sites in working_ion_sites[:2]]
+    return np.linalg.norm(site_a.coords - site_b.coords)
 
 
 @job
@@ -564,7 +585,9 @@ def collate_images_single_hop(
     hop_dist = None
     if endpoint_calc_output is not None and working_ion is not None:
         hop_dist = get_hop_distance_from_endpoints(
-            [ep_calc["structure"] for ep_calc in endpoint_calc_output], working_ion
+            [ep_calc["structure"] for ep_calc in endpoint_calc_output],
+            working_ion,
+            tol=0.3,
         )
 
     return NebResult(
