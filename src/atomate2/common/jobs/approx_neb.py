@@ -190,7 +190,7 @@ def collate_results(
         )
 
         hop_dist[combo_name] = get_hop_distance_from_endpoints(
-            [ep_calc["structure"] for ep_calc in endpoint_calcs], working_ion, tol=0.3
+            [ep_calc["structure"] for ep_calc in endpoint_calcs], working_ion, tol=tol
         )
 
     return NebPathwayResult(
@@ -218,6 +218,7 @@ def get_images_and_relax(
     relax_maker: Maker,
     selective_dynamics_scheme: Literal["fix_two_atoms"] | None = "fix_two_atoms",
     min_hop_distance: float | bool = True,
+    tol: float = 0.3
 ) -> Response:
     """
     Get and relax image input structures.
@@ -298,7 +299,7 @@ def get_images_and_relax(
         elif (
             isinstance(min_hop_distance, float)
             and get_hop_distance_from_endpoints(
-                [ep_structures[ini_ind], ep_structures[fin_ind]], working_ion, tol=0.3
+                [ep_structures[ini_ind], ep_structures[fin_ind]], working_ion, tol=tol
             )
             < min_hop_distance
         ):
@@ -310,7 +311,6 @@ def get_images_and_relax(
             continue
 
         # potential place for uuid logic if depth first is desirable
-        # try:
         pathfinder_output = get_pathfinder_results(
             ep_structures[ini_ind],
             ep_structures[fin_ind],
@@ -319,9 +319,6 @@ def get_images_and_relax(
             host_chgcar,
         )
         images_list = pathfinder_output["images"]
-        # except Exception:
-        #    skip_reasons.append(HopFailureReason.ENDPOINT)
-        #    continue
 
         # add selective dynamics to structure
         if selective_dynamics_scheme == "fix_two_atoms":
@@ -587,7 +584,7 @@ def collate_images_single_hop(
         hop_dist = get_hop_distance_from_endpoints(
             [ep_calc["structure"] for ep_calc in endpoint_calc_output],
             working_ion,
-            tol=0.3,
+            tol=tol,
         )
 
     return NebResult(
