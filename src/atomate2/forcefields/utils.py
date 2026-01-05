@@ -6,24 +6,24 @@ import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
+from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ase.io import Trajectory as AseTrajectory
 from ase.units import Bohr
 from ase.units import GPa as _GPa_to_eV_per_A3
 from monty.json import MontyDecoder
-from pymatgen.core.trajectory import Trajectory as PmgTrajectory
+from typing_extensions import assert_never, deprecated
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Callable, Generator
     from typing import Any
 
     from ase.calculators.calculator import Calculator
 
     from atomate2.ase.schemas import AseResult
 
-_FORCEFIELD_DATA_OBJECTS = [PmgTrajectory, AseTrajectory, "ionic_steps"]
+_FORCEFIELD_DATA_OBJECTS = ["trajectory", "ionic_steps"]
 
 
 class MLFF(Enum):  # TODO inherit from StrEnum when 3.11+
@@ -42,6 +42,7 @@ class MLFF(Enum):  # TODO inherit from StrEnum when 3.11+
     SevenNet = "SevenNet"
     MATPES_R2SCAN = "MatPES-r2SCAN"
     MATPES_PBE = "MatPES-PBE"
+    DeepMD = "DeepMD"
 
     @classmethod
     def _missing_(cls, value: Any) -> Any:
@@ -76,6 +77,47 @@ _DEFAULT_CALCULATOR_KWARGS = {
 }
 
 
+def _get_standardized_mlff(force_field_name: str | MLFF) -> MLFF:
+    """Get the standardized force field name.
+
+    Parameters
+    ----------
+    force_field_name : str or .MLFF
+        The name of the force field
+        For str, accept both with and without the `MLFF.` prefix.
+
+    Returns
+    -------
+    MLFF: the name of the forcefield
+    """
+    if isinstance(force_field_name, str):
+        # ensure `force_field_name` uses enum format
+        if force_field_name.startswith("MLFF."):
+            force_field_name = force_field_name.split("MLFF.")[-1]
+
+        if force_field_name in MLFF.__members__:
+            force_field_name = MLFF[force_field_name]
+        elif force_field_name in [v.value for v in MLFF]:
+            force_field_name = MLFF(force_field_name)
+        else:
+            raise ValueError(
+                f"force_field_name={force_field_name} is not a valid MLFF name."
+            )
+
+    if force_field_name == MLFF.MACE:
+        warnings.warn(
+            "Because the default MP-trained MACE model is constantly evolving, "
+            "we no longer recommend using `MACE` or `MLFF.MACE` to specify "
+            "a MACE model. For reproducibility purposes, specifying `MACE` "
+            "will still default to MACE-MP-0 (medium), which is identical to "
+            "specifying `MLFF.MACE_MP_0`.",
+            category=UserWarning,
+            stacklevel=2,
+        )
+    return force_field_name
+
+
+@deprecated("Use _get_standardized_mlff instead.")
 def _get_formatted_ff_name(force_field_name: str | MLFF) -> str:
     """
     Get the standardized force field name.
@@ -89,24 +131,8 @@ def _get_formatted_ff_name(force_field_name: str | MLFF) -> str:
     -------
     str : the name of the forcefield from MLFF
     """
-    if isinstance(force_field_name, str):
-        # ensure `force_field_name` uses enum format
-        if force_field_name in MLFF.__members__:
-            force_field_name = MLFF[force_field_name]
-        elif force_field_name in [v.value for v in MLFF]:
-            force_field_name = MLFF(force_field_name)
-    force_field_name = str(force_field_name)
-    if force_field_name in {"MLFF.MACE", "MACE"}:
-        warnings.warn(
-            "Because the default MP-trained MACE model is constantly evolving, "
-            "we no longer recommend using `MACE` or `MLFF.MACE` to specify "
-            "a MACE model. For reproducibility purposes, specifying `MACE` "
-            "will still default to MACE-MP-0 (medium), which is identical to "
-            "specifying `MLFF.MACE_MP_0`.",
-            category=UserWarning,
-            stacklevel=2,
-        )
-    return force_field_name
+    force_field_name = _get_standardized_mlff(force_field_name)
+    return str(force_field_name)
 
 
 @dataclass
@@ -119,6 +145,8 @@ class ForceFieldMixin:
         Name of the forcefield which will be
         correctly deserialized/standardized if the forcefield is
         a known `MLFF`.
+    calculator_meta : MLFF or dict
+        Actual metadata to instantiate the ASE calculator.
     calculator_kwargs : dict = field(default_factory=dict)
         Keyword arguments that will get passed to the ASE calculator.
     task_document_kwargs: dict = field(default_factory=dict)
@@ -126,7 +154,8 @@ class ForceFieldMixin:
         or another final document schema.
     """
 
-    force_field_name: str | MLFF = MLFF.Forcefield
+    force_field_name: str | MLFF | dict = MLFF.Forcefield
+    calculator_meta: MLFF | dict = field(init=False)
     calculator_kwargs: dict = field(default_factory=dict)
     task_document_kwargs: dict = field(default_factory=dict)
 
@@ -135,18 +164,23 @@ class ForceFieldMixin:
         if hasattr(super(), "__post_init__"):
             super().__post_init__()  # type: ignore[misc]
 
-        self.force_field_name = _get_formatted_ff_name(self.force_field_name)
+        if isinstance(self.force_field_name, dict):
+            mlff = MLFF.Forcefield  # Fallback to placeholder
+            self.calculator_meta = self.force_field_name.copy()
+        else:
+            mlff = _get_standardized_mlff(self.force_field_name)
+            self.calculator_meta = mlff
+
+        self.force_field_name: str = str(mlff)  # Narrow-down type for mypy
 
         # Pad calculator_kwargs with default values, but permit user to override them
         self.calculator_kwargs = {
-            **_DEFAULT_CALCULATOR_KWARGS.get(
-                MLFF(self.force_field_name.split("MLFF.")[-1]), {}
-            ),
+            **_DEFAULT_CALCULATOR_KWARGS.get(mlff, {}),
             **self.calculator_kwargs,
         }
 
         if not self.task_document_kwargs.get("force_field_name"):
-            self.task_document_kwargs["force_field_name"] = str(self.force_field_name)
+            self.task_document_kwargs["force_field_name"] = self.force_field_name
 
     def _run_ase_safe(self, *args, **kwargs) -> AseResult:
         if not hasattr(self, "run_ase"):
@@ -160,9 +194,24 @@ class ForceFieldMixin:
     def calculator(self) -> Calculator:
         """ASE calculator, can be overwritten by user."""
         return ase_calculator(
-            str(self.force_field_name),  # make mypy happy
+            self.calculator_meta,
             **self.calculator_kwargs,
         )
+
+    @property
+    def mlff(self) -> MLFF:
+        """The MLFF enum corresponding to the force field name."""
+        return MLFF(str(self.force_field_name).split("MLFF.")[-1])
+
+    @cached_property
+    def ase_calculator_name(self) -> str:
+        """The name of the ASE calculator for schemas."""
+        if isinstance(self.calculator_meta, MLFF):
+            return str(self.force_field_name)
+        if isinstance(self.calculator_meta, dict):
+            calc_cls = _load_calc_cls(self.calculator_meta)
+            return calc_cls.__name__
+        assert_never(self.calculator_meta)
 
 
 def ase_calculator(
@@ -225,8 +274,7 @@ def ase_calculator(
             if isinstance(model, str | Path) and Path(model).exists():
                 model_path = model
                 device = kwargs.pop("device", None) or "cpu"
-                if "device" in kwargs:
-                    del kwargs["device"]
+                kwargs.pop("device", None)
                 calculator = MACECalculator(
                     model_paths=model_path,
                     device=device,
@@ -269,15 +317,25 @@ def ase_calculator(
         elif calculator_name == MLFF.Nequip:
             from nequip.ase import NequIPCalculator
 
-            calculator = NequIPCalculator.from_deployed_model(**kwargs)
+            calculator = getattr(
+                NequIPCalculator,
+                "from_compiled_model"
+                if hasattr(NequIPCalculator, "from_compiled_model")
+                else "from_deployed_model",
+            )(**kwargs)
 
         elif calculator_name == MLFF.SevenNet:
             from sevenn.sevennet_calculator import SevenNetCalculator
 
             calculator = SevenNetCalculator(**{"model": "7net-0"} | kwargs)
 
+        elif calculator_name == MLFF.DeepMD:
+            from deepmd.calculator import DP
+
+            calculator = DP(**kwargs)
+
     elif isinstance(calculator_meta, dict):
-        calc_cls = MontyDecoder().process_decoded(calculator_meta)
+        calc_cls = _load_calc_cls(calculator_meta)
         calculator = calc_cls(**kwargs)
 
     if calculator is None:
@@ -286,8 +344,14 @@ def ase_calculator(
     return calculator
 
 
+def _load_calc_cls(
+    calculator_meta: dict,
+) -> type[Calculator] | Callable[..., Calculator]:
+    return MontyDecoder().process_decoded(calculator_meta)
+
+
 @contextmanager
-def revert_default_dtype() -> Generator[None, None, None]:
+def revert_default_dtype() -> Generator[None]:
     """Context manager for torch.default_dtype.
 
     Reverts it to whatever torch.get_default_dtype() was when entering the context.
