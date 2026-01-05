@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+from collections import defaultdict
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -188,7 +190,8 @@ def collate_results(
         )
 
         hop_dist[combo_name] = get_hop_distance_from_endpoints(
-            [ep_calc["structure"] for ep_calc in endpoint_calcs], working_ion
+            [ep_calc["structure"] for ep_calc in endpoint_calcs],
+            working_ion,
         )
 
     return NebPathwayResult(
@@ -216,6 +219,7 @@ def get_images_and_relax(
     relax_maker: Maker,
     selective_dynamics_scheme: Literal["fix_two_atoms"] | None = "fix_two_atoms",
     min_hop_distance: float | bool = True,
+    tol: float = 0.3,
 ) -> Response:
     """
     Get and relax image input structures.
@@ -260,6 +264,7 @@ def get_images_and_relax(
     """
     # remove failed output and strip magmoms to avoid "Bravais" errors
     ep_structures = {}
+
     for k, calc in ep_output.items():
         if calc["structure"] is None:
             continue
@@ -292,10 +297,10 @@ def get_images_and_relax(
         if not all(ep_structures.get(idx) for idx in [ini_ind, fin_ind]):
             # At least one endpoint calculation failed
             skip_reasons.append(HopFailureReason.ENDPOINT)
-        if (
+        elif (
             isinstance(min_hop_distance, float)
             and get_hop_distance_from_endpoints(
-                [ep_structures[ini_ind], ep_structures[fin_ind]], working_ion
+                [ep_structures[ini_ind], ep_structures[fin_ind]], working_ion, tol=tol
             )
             < min_hop_distance
         ):
@@ -476,7 +481,9 @@ def get_working_ion_index(
 
 
 def get_hop_distance_from_endpoints(
-    endpoint_structures: Sequence[Structure], working_ion: CompositionLike
+    endpoint_structures: Sequence[Structure],
+    working_ion: CompositionLike,
+    tol: float = 1e-4,
 ) -> float:
     """
     Find the hop distance of a working ion from two endpoint structures.
@@ -487,6 +494,8 @@ def get_hop_distance_from_endpoints(
         The two endpoint structures defining a hop.
     working_ion : pymatgen .CompositionLike
         The species name of the working ion.
+    tol : float = 1e-4
+        The tolerance for differentiating sites in Angstrom
 
     Returns
     -------
@@ -501,11 +510,31 @@ def get_hop_distance_from_endpoints(
         for ep_idx in range(2)
     ]
 
-    return max(
-        np.linalg.norm(site_a.coords - site_b.coords)
-        for site_a in working_ion_sites[0]
-        for site_b in working_ion_sites[1]
-    )
+    sitea_coords = np.array([site.frac_coords for site in working_ion_sites[0]])
+    siteb_coords = np.array([site.frac_coords for site in working_ion_sites[1]])
+
+    dist_matrix = [
+        endpoint_structures[0].lattice.get_all_distances(sitea_coords, siteb_coords)
+    ]
+    site_mappings: dict[int, list[int]] = defaultdict(list)
+    unmapped_start_idxs = []
+    for idx, row in enumerate(dist_matrix):
+        ind = np.where(row < tol)[0]
+        if len(ind) == 1:
+            site_mappings[idx].append(ind[0])
+        else:
+            unmapped_start_idxs.append(idx)
+
+        if len(unmapped_start_idxs) == 1:
+            unmapped_start_ind = unmapped_start_idxs[0]
+        else:
+            warnings.warn(
+                "Too many working ions. Consider lowering the tolerance.", stacklevel=2
+            )
+            return tol
+
+        site_a, site_b = (sites[unmapped_start_ind] for sites in working_ion_sites[:2])
+    return np.linalg.norm(site_a.coords - site_b.coords)
 
 
 @job
@@ -558,7 +587,8 @@ def collate_images_single_hop(
     hop_dist = None
     if endpoint_calc_output is not None and working_ion is not None:
         hop_dist = get_hop_distance_from_endpoints(
-            [ep_calc["structure"] for ep_calc in endpoint_calc_output], working_ion
+            [ep_calc["structure"] for ep_calc in endpoint_calc_output],
+            working_ion,
         )
 
     return NebResult(
