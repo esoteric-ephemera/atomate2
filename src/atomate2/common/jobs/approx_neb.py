@@ -393,19 +393,27 @@ def get_pathfinder_results(
     host_v = v_chgcar.get_v()
 
     # perform pathfinding and get images
-    neb_pf = NEBPathfinder(
-        pf_struct_ini,
-        pf_struct_fin,
-        relax_sites=[ini_wi_ind],
-        v=host_v,
-        n_images=n_images + 1,
-    )
-    # note NEBPathfinder currently returns n_images+1 images (rather than n_images)
-    # and the first and last images generated are very similar to the end points
-    # provided so they are discarded
+    try:
+        neb_pf = NEBPathfinder(
+            pf_struct_ini,
+            pf_struct_fin,
+            relax_sites=[ini_wi_ind],
+            v=host_v,
+            n_images=n_images + 1,
+        )
+        # note NEBPathfinder currently returns n_images+1 images (rather than n_images)
+        # and the first and last images generated are very similar to the end points
+        # provided so they are discarded
+        all_images = neb_pf.images
+
+    except ValueError:
+        # NEBPathfinder can fail, fall back to linear interpolation if that occurs
+        all_images = pf_struct_ini[0].interpolate(
+            pf_struct_fin[1], nimages=n_images + 1, autosort_tol=0.5
+        )
 
     return {
-        "images": neb_pf.images[1:-1],
+        "images": all_images[1:-1],
         "mobile_site_index": ini_wi_ind,
     }
 
