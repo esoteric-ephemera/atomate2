@@ -312,13 +312,22 @@ def get_images_and_relax(
             continue
 
         # potential place for uuid logic if depth first is desirable
-        pathfinder_output = get_pathfinder_results(
-            ep_structures[ini_ind],
-            ep_structures[fin_ind],
-            working_ion,
-            n_images[hop_idx],
-            host_chgcar,
-        )
+
+        try:
+            pathfinder_output = get_pathfinder_results(
+                ep_structures[ini_ind],
+                ep_structures[fin_ind],
+                working_ion,
+                n_images[hop_idx],
+                host_chgcar,
+            )
+        except ValueError:
+            warnings.warn(
+                "Pathfinder is failing cause initial and final "
+                "geometry are the same image. excluding this hop.",
+                stacklevel=2,
+            )
+
         images_list = pathfinder_output["images"]
 
         # add selective dynamics to structure
