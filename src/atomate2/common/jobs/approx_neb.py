@@ -323,10 +323,12 @@ def get_images_and_relax(
             )
         except ValueError:
             warnings.warn(
-                "Pathfinder is failing cause initial and final "
-                "geometry are the same image. excluding this hop.",
+                "NEBPathfinder can fail when the initial and final "
+                "images along a hop are nearly identical. "
+                "Excluding this hop.",
                 stacklevel=2,
             )
+            continue
 
         images_list = pathfinder_output["images"]
 
