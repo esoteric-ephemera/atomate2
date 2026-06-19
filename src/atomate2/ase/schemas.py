@@ -20,7 +20,7 @@ from emmet.core.math import Matrix3D, Vector3D
 from emmet.core.structure import MoleculeMetadata, StructureMetadata
 from emmet.core.trajectory import AtomTrajectory
 from emmet.core.types.enums import StoreTrajectoryOption, TaskState, ValueEnum
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 from pymatgen.core import Molecule, Structure
 from pymatgen.core.trajectory import Trajectory as PmgTrajectory
 from pymatgen.entries.computed_entries import ComputedEntry
@@ -116,17 +116,24 @@ class AseBaseModel(BaseModel):
     """Base document class for ASE input and output."""
 
     mol_or_struct: Structure | Molecule | None = Field(
-        None, description="The molecule or structure at this step."
+        None,
+        description="The molecule or structure at this step.",
+        validation_alias=AliasChoices("mol_or_struct", "structure", "molecule"),
     )
-    structure: Structure | None = Field(None, description="The structure at this step.")
-    molecule: Molecule | None = Field(None, description="The molecule at this step.")
 
-    def model_post_init(self, context: Any, /) -> None:
-        """Establish alias to structure and molecule fields."""
-        if self.structure is None and isinstance(self.mol_or_struct, Structure):
-            self.structure = self.mol_or_struct
-        elif self.molecule is None and isinstance(self.mol_or_struct, Molecule):
-            self.molecule = self.mol_or_struct
+    @property
+    def structure(self) -> Structure | None:
+        """Retrieve the structure associated with this document, if applicable."""
+        if isinstance(self.mol_or_struct, Structure):
+            return self.mol_or_struct
+        return None
+
+    @property
+    def molecule(self) -> Molecule | None:
+        """Retrieve the molecule associated with this document, if applicable."""
+        if isinstance(self.mol_or_struct, Molecule):
+            return self.mol_or_struct
+        return None
 
 
 class IonicStep(AseBaseModel):
@@ -186,6 +193,10 @@ class InputDoc(AseBaseModel):
     relax_cell: bool | None = Field(
         None,
         description="Whether cell lattice was allowed to change during relaxation.",
+    )
+    relax_shape: bool | None = Field(
+        None,
+        description="Whether the cell shape was allowed to relax, at fixed volume.",
     )
     fix_symmetry: bool | None = Field(
         None,
@@ -393,6 +404,7 @@ class AseTaskDoc(AseBaseModel):
         relax_kwargs: dict = None,
         optimizer_kwargs: dict = None,
         relax_cell: bool = True,
+        relax_shape: bool = False,
         fix_symmetry: bool = False,
         symprec: float = 1e-2,
         ionic_step_data: tuple[str, ...] | None = (
@@ -418,6 +430,9 @@ class AseTaskDoc(AseBaseModel):
             Maximum number of ionic steps allowed during relaxation.
         relax_cell : bool = True
             Whether to allow the cell shape/volume to change during relaxation.
+        relax_shape : bool = True
+            Whether to allow the cell shape to relax at fixed volume.
+            Cannot be used together with `relax_cell=True`.
         fix_symmetry : bool
             Whether to fix the symmetry of the ions during relaxation.
         symprec : float
@@ -452,6 +467,7 @@ class AseTaskDoc(AseBaseModel):
         input_doc = InputDoc(
             mol_or_struct=input_mol_or_struct,
             relax_cell=relax_cell,
+            relax_shape=relax_shape,
             fix_symmetry=fix_symmetry,
             symprec=symprec,
             steps=steps,
@@ -476,8 +492,18 @@ class AseTaskDoc(AseBaseModel):
         final_stress = None
         ionic_steps = None
 
+        if "mol_or_struct" not in (
+            user_ionic_step_data := set(ionic_step_data or tuple())
+        ):
+            for ms_alias in ("molecule", "structure"):
+                if ms_alias in user_ionic_step_data:
+                    user_ionic_step_data.add("mol_or_struct")
+
         if trajectory:
             ionic_step_props = {"energy", "forces"}
+            if save_atoms := "mol_or_struct" in user_ionic_step_data:
+                user_ionic_step_data.remove("mol_or_struct")
+
             if isinstance(trajectory, AtomTrajectory):
                 final_energy = trajectory.energy[-1]
                 final_forces = trajectory.forces[-1]
@@ -501,21 +527,17 @@ class AseTaskDoc(AseBaseModel):
                     ionic_step_props.add("magmoms")
 
             ionic_steps = []
-            if (
-                len(
-                    use_ionic_step_props := ionic_step_props.intersection(
-                        ionic_step_data or set()
-                    )
-                )
-                > 0
-            ):
+            use_ionic_step_props = ionic_step_props.intersection(user_ionic_step_data)
+            if len(use_ionic_step_props) > 0:
                 if isinstance(trajectory, AtomTrajectory):
                     ionic_steps = [
                         IonicStep(
                             mol_or_struct=trajectory.to_pmg(
                                 frame_props=tuple(),
                                 indices=idx,
-                            )[0],
+                            )[0]
+                            if save_atoms
+                            else None,
                             **{
                                 key: getattr(trajectory, key)[idx]
                                 for key in use_ionic_step_props
@@ -527,7 +549,7 @@ class AseTaskDoc(AseBaseModel):
                 else:
                     ionic_steps = [
                         IonicStep(
-                            mol_or_struct=atoms,
+                            mol_or_struct=atoms if save_atoms else None,
                             **{
                                 key: convert_stress_from_voigt_to_symm(
                                     trajectory.frame_properties[idx].get(key)
@@ -611,8 +633,9 @@ class AseTaskDoc(AseBaseModel):
         if isinstance(task_doc.mol_or_struct, Structure):
             meta_class = AseStructureTaskDoc
             k = "structure"
-            if relax_cell := getattr(task_doc, "relax_cell", None):
-                kwargs.update({"relax_cell": relax_cell})
+            for relax_k in ("relax_cell", "relax_shape"):
+                if relax_val := getattr(task_doc, relax_k, None):
+                    kwargs[relax_k] = relax_val
         elif isinstance(task_doc.mol_or_struct, Molecule):
             meta_class = AseMoleculeTaskDoc
             k = "molecule"
